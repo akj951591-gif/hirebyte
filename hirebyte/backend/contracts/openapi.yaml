@@ -1,0 +1,3282 @@
+# GENERATED from backend/contracts/api-types.ts and backend/contracts/openapi.routes.ts.
+# Do not edit by hand: run `npm run contract:openapi` in backend/api.
+openapi: 3.1.0
+info:
+  title: HireByte API
+  version: 0.1.0
+  description: REST API of the HireByte Node backend (PRD v2.1 §11). Errors always use ApiErrorBody. Realtime Socket.IO events are documented in events.md.
+servers:
+  - url: /api
+tags:
+  - name: System
+  - name: Auth
+  - name: Candidate
+  - name: Interviews
+  - name: Evaluation
+  - name: Questions
+  - name: Media
+  - name: Recordings
+  - name: Proctoring
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      summary: Database and provider configuration state (never secrets).
+      security: []
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /auth/recruiter/login:
+    post:
+      tags:
+        - Auth
+      summary: Recruiter email + password sign-in; sets the hb_session cookie. Rate-limited.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruiterLoginRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecruiterLoginResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: INVALID_CREDENTIALS."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "423":
+          description: "Error codes: ACCOUNT_LOCKED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: "Error codes: RATE_LIMITED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /auth/recruiter/logout:
+    post:
+      tags:
+        - Auth
+      summary: Revokes the recruiter session (if any) and clears the cookie.
+      security: []
+      responses:
+        "204":
+          description: Success (no body).
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Safe identity and role of the signed-in recruiter.
+      security:
+        - recruiterSession: []
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/access:
+    post:
+      tags:
+        - Candidate
+      summary: Validates invitation + access code; sets the hb_candidate cookie. Rate-limited, locks after 5 failures.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateAccessRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateAccessResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: INVITATION_INVALID."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: INTERVIEW_COMPLETED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "410":
+          description: "Error codes: INVITATION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "423":
+          description: "Error codes: SESSION_LOCKED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: "Error codes: RATE_LIMITED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/logout:
+    post:
+      tags:
+        - Candidate
+      summary: Ends the candidate session (if any) and clears the cookie.
+      security: []
+      responses:
+        "204":
+          description: Success (no body).
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}:
+    get:
+      tags:
+        - Candidate
+      summary: "Candidate-safe interview view: instructions, notices, consent, phone pairing."
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateSessionView"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/consent:
+    post:
+      tags:
+        - Candidate
+      summary: Records recording and observation consent for the notice versions shown.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsentRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR, CONSENT_REQUIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/start:
+    post:
+      tags:
+        - Candidate
+      summary: Starts the interview (and recording, if enabled and consented); idempotent.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentQuestionResponse"
+        "400":
+          description: "Error codes: CONSENT_REQUIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: SECONDARY_CAMERA_REQUIRED, INTERVIEW_COMPLETED, CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/current-question:
+    get:
+      tags:
+        - Candidate
+      summary: Current question and progress, restored from the database after a refresh.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentQuestionResponse"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/answers:
+    post:
+      tags:
+        - Candidate
+      summary: Saves the answer to the current question; a retry with the same idempotency key is a no-op.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAnswerRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentQuestionResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: DUPLICATE_SUBMISSION, CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/skip:
+    post:
+      tags:
+        - Candidate
+      summary: Skips the current question when the interview allows it.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkipQuestionRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentQuestionResponse"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN, SKIP_NOT_ALLOWED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: DUPLICATE_SUBMISSION, CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/complete:
+    post:
+      tags:
+        - Candidate
+      summary: Submits the interview; open questions become UNANSWERED. Idempotent.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteSessionResponse"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews:
+    post:
+      tags:
+        - Interviews
+      summary: Creates a DRAFT interview (question count defaults to 10).
+      security:
+        - recruiterSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInterviewRequest"
+      responses:
+        "201":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewDetail"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+    get:
+      tags:
+        - Interviews
+      summary: Lists and searches the recruiter’s interviews with dashboard stats.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/InterviewStatus"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListInterviewsResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}:
+    get:
+      tags:
+        - Interviews
+      summary: Interview detail, including the invitation and live state.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewDetail"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+    patch:
+      tags:
+        - Interviews
+      summary: Edits a DRAFT; omitted fields are unchanged and config is merged.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInterviewRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewDetail"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+    delete:
+      tags:
+        - Interviews
+      summary: Deletes a DRAFT and its questions.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Success (no body).
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/cancel:
+    post:
+      tags:
+        - Interviews
+      summary: "Cancels an unfinished interview: revokes candidate access, stops recording, keeps saved answers."
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewDetail"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/resume:
+    post:
+      tags:
+        - Interviews
+      summary: Uploads a PDF/DOCX resume (max 5 MB) for text extraction; only the text is kept.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - resume
+              properties:
+                resume:
+                  type: string
+                  format: binary
+                  description: PDF or DOCX, up to 5 MB
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResumeResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "415":
+          description: "Error codes: RESUME_UNSUPPORTED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "422":
+          description: "Error codes: RESUME_UNREADABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: SERVICE_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/ready:
+    post:
+      tags:
+        - Interviews
+      summary: Locks the questions and issues the invitation + access code. Idempotent.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkReadyResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/report:
+    get:
+      tags:
+        - Evaluation
+      summary: Report built from persisted answers, evaluations and observations.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewReport"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/export.pdf:
+    get:
+      tags:
+        - Evaluation
+      summary: The report as a downloadable PDF.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File download.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/questions/generate:
+    post:
+      tags:
+        - Questions
+      summary: Generates questions with Grok and saves them as the draft set (count defaults to the configured count).
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateQuestionsRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateQuestionsResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: PROVIDER_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "504":
+          description: "Error codes: PROVIDER_TIMEOUT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/questions:
+    patch:
+      tags:
+        - Questions
+      summary: Saves the approved questions; array order is the interview order.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuestionsRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateQuestionsResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/evaluate:
+    post:
+      tags:
+        - Evaluation
+      summary: Starts or re-runs rubric evaluation in the background; repeating while it runs is a no-op.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResponse"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: PROVIDER_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /evaluations/{id}/review:
+    patch:
+      tags:
+        - Evaluation
+      summary: Confirms or overrides an AI score (the original score is kept).
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewEvaluationRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/media-token:
+    post:
+      tags:
+        - Media
+      summary: Issues a short-lived, role-scoped LiveKit token (recruiter viewer, candidate laptop, or paired phone).
+      security:
+        - recruiterSession: []
+        - candidateSession: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaTokenRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaTokenResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED, SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: MEDIA_NOT_CONFIGURED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /webhooks/livekit/egress:
+    post:
+      tags:
+        - Media
+      summary: LiveKit webhook (signed with the LiveKit API secret); processed once per delivery id.
+      security:
+        - livekitSignature: []
+      responses:
+        "200":
+          description: Success (no body).
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: MEDIA_NOT_CONFIGURED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/recordings:
+    get:
+      tags:
+        - Recordings
+      summary: Recording metadata; reconciles with LiveKit when webhooks are delayed.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRecordingsResponse"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/recordings/start:
+    post:
+      tags:
+        - Recordings
+      summary: Retries starting the recording during an in-progress, consented interview.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRecordingsResponse"
+        "400":
+          description: "Error codes: CONSENT_REQUIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: RECORDING_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /recordings/{recordingId}/playback-url:
+    post:
+      tags:
+        - Recordings
+      summary: Short-lived signed R2 URL, issued after an ownership check (never cached or logged).
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaybackUrlResponse"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: RECORDING_NOT_READY."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "410":
+          description: "Error codes: RECORDING_DELETED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: RECORDING_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /recordings/{recordingId}:
+    delete:
+      tags:
+        - Recordings
+      summary: Deletes the R2 object, then marks the recording DELETED.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recording"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "502":
+          description: "Error codes: RECORDING_DELETE_FAILED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: RECORDING_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/events:
+    post:
+      tags:
+        - Proctoring
+      summary: Logs an observation for human review during the interview (never a verdict).
+      security:
+        - candidateSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProctoringEventRequest"
+      responses:
+        "201":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProctoringEvent"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /proctoring-events/{id}/review:
+    patch:
+      tags:
+        - Proctoring
+      summary: Sets an observation’s review status and note.
+      security:
+        - recruiterSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewProctoringEventRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProctoringEvent"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: "Error codes: NOT_FOUND."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+components:
+  securitySchemes:
+    recruiterSession:
+      type: apiKey
+      in: cookie
+      name: hb_session
+      description: HttpOnly session cookie set by POST /auth/recruiter/login.
+    candidateSession:
+      type: apiKey
+      in: cookie
+      name: hb_candidate
+      description: HttpOnly, interview-scoped cookie set by POST /candidate/access (path /api).
+    livekitSignature:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: JWT signed with the LiveKit API secret, containing a sha256 of the raw body.
+  schemas:
+    UserRole:
+      type: string
+      enum:
+        - RECRUITER
+        - ADMIN
+      description: |-
+        HIREBYTE API CONTRACT TYPES (provisional, PRD v2.1 §11).
+
+        Canonical file: backend/contracts/api-types.ts. A byte-identical copy lives in frontend/src/api/generated/contract.ts; backend test `contract.sync.test.ts` fails if they differ. Change the canonical file, then copy it to the frontend (`npm run sync:contract` in frontend). backend/contracts/openapi.yaml should be generated from / kept equivalent to these types.
+    InterviewStatus:
+      type: string
+      enum:
+        - DRAFT
+        - READY
+        - ONBOARDING
+        - IN_PROGRESS
+        - PROCESSING_ANSWER
+        - COMPLETED
+        - EVALUATING
+        - EVALUATED
+        - EVALUATION_FAILED
+        - REVIEWED
+        - CANCELLED
+    RecordingStatus:
+      type: string
+      enum:
+        - NOT_ENABLED
+        - PENDING
+        - RECORDING
+        - FINALIZING
+        - READY
+        - FAILED
+        - DELETED
+    Difficulty:
+      type: string
+      enum:
+        - EASY
+        - MEDIUM
+        - HARD
+    ExperienceLevel:
+      type: string
+      enum:
+        - INTERN
+        - JUNIOR
+        - MID
+        - SENIOR
+        - LEAD
+    QuestionCategory:
+      type: string
+      enum:
+        - TECHNICAL
+        - BEHAVIORAL
+        - SITUATIONAL
+        - RESUME
+        - SYSTEM_DESIGN
+    QuestionSource:
+      type: string
+      enum:
+        - AI_GENERATED
+        - RECRUITER
+        - FOLLOW_UP
+    AnswerStatus:
+      type: string
+      enum:
+        - ANSWERED
+        - SKIPPED
+        - UNANSWERED
+    AnswerInputMode:
+      type: string
+      enum:
+        - VOICE
+        - TEXT
+    SecondaryCameraPolicy:
+      type: string
+      enum:
+        - OFF
+        - OPTIONAL
+        - REQUIRED
+    ExtractionStatus:
+      type: string
+      enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+    EvaluationStatus:
+      type: string
+      enum:
+        - NOT_STARTED
+        - EVALUATING
+        - EVALUATED
+        - FAILED
+    EvaluationReviewStatus:
+      type: string
+      enum:
+        - AI_ONLY
+        - CONFIRMED
+        - OVERRIDDEN
+    CameraSource:
+      type: string
+      enum:
+        - PRIMARY
+        - SECONDARY
+    MediaConnectionStatus:
+      type: string
+      enum:
+        - NOT_CONNECTED
+        - CONNECTING
+        - CONNECTED
+        - DISCONNECTED
+    PairingStatus:
+      type: string
+      enum:
+        - NOT_PAIRED
+        - PAIRED
+        - DISCONNECTED
+        - EXPIRED
+    ProctoringEventType:
+      type: string
+      enum:
+        - FACE_ABSENT
+        - MULTIPLE_FACES
+        - LOOKING_AWAY
+        - TAB_HIDDEN
+        - SECONDARY_CONNECTED
+        - SECONDARY_DISCONNECTED
+        - AUDIO_ISSUE
+    ProctoringReviewStatus:
+      type: string
+      enum:
+        - UNREVIEWED
+        - NO_CONCERN
+        - NEEDS_FOLLOW_UP
+      description: Observation review state. Events are for human review, never a cheating verdict (PRD §13).
+    ApiErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - RATE_LIMITED
+        - INVALID_CREDENTIALS
+        - ACCOUNT_LOCKED
+        - INVITATION_INVALID
+        - INVITATION_EXPIRED
+        - INTERVIEW_COMPLETED
+        - SESSION_LOCKED
+        - SESSION_EXPIRED
+        - CONSENT_REQUIRED
+        - SECONDARY_CAMERA_REQUIRED
+        - SKIP_NOT_ALLOWED
+        - DUPLICATE_SUBMISSION
+        - RESUME_UNSUPPORTED
+        - RESUME_UNREADABLE
+        - PROVIDER_UNAVAILABLE
+        - PROVIDER_TIMEOUT
+        - MEDIA_NOT_CONFIGURED
+        - RECORDING_NOT_READY
+        - RECORDING_UNAVAILABLE
+        - RECORDING_DELETED
+        - RECORDING_DELETE_FAILED
+        - SERVICE_UNAVAILABLE
+        - INTERNAL_ERROR
+      description: Error codes the UI branches on. Unknown codes fall back to the generic error message.
+    ApiErrorBody:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              anyOf:
+                - $ref: "#/components/schemas/ApiErrorCode"
+                - type: string
+            message:
+              type: string
+            requestId:
+              type: string
+            details:
+              type: object
+              additionalProperties: {}
+          required:
+            - code
+            - message
+      required:
+        - error
+      description: PRD §11.1 standard error body.
+    SafeUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+      required:
+        - id
+        - email
+        - name
+        - role
+    RecruiterLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+    RecruiterLoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/SafeUser"
+      required:
+        - user
+      description: Session is carried by an HttpOnly cookie; the body only echoes the safe identity.
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/SafeUser"
+      required:
+        - user
+    InterviewConfig:
+      type: object
+      properties:
+        questionCount:
+          type: number
+          description: Backend defaults to 10 when omitted (PRD §19).
+        durationMinutes:
+          type: number
+        difficulty:
+          $ref: "#/components/schemas/Difficulty"
+        experienceLevel:
+          $ref: "#/components/schemas/ExperienceLevel"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionCategory"
+        allowSkip:
+          type: boolean
+        allowFollowUps:
+          type: boolean
+        maxFollowUps:
+          type: number
+        secondaryCamera:
+          $ref: "#/components/schemas/SecondaryCameraPolicy"
+        recordingEnabled:
+          type: boolean
+          description: Requested by the recruiter; the server still applies RECORDING_ENABLED policy.
+      required:
+        - questionCount
+        - durationMinutes
+        - difficulty
+        - experienceLevel
+        - categories
+        - allowSkip
+        - allowFollowUps
+        - maxFollowUps
+        - secondaryCamera
+        - recordingEnabled
+    InterviewProgress:
+      type: object
+      properties:
+        answered:
+          type: number
+        skipped:
+          type: number
+        total:
+          type: number
+        currentSequence:
+          type:
+            - number
+            - "null"
+          description: 1-based sequence of the question currently shown, null before start / after the last one.
+      required:
+        - answered
+        - skipped
+        - total
+        - currentSequence
+    InterviewSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        jobTitle:
+          type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+        questionCount:
+          type: number
+        overallScore:
+          type:
+            - number
+            - "null"
+        maxScore:
+          type: number
+        recordingStatus:
+          $ref: "#/components/schemas/RecordingStatus"
+        createdAt:
+          type: string
+        startedAt:
+          type:
+            - string
+            - "null"
+        endedAt:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - jobTitle
+        - candidateName
+        - candidateEmail
+        - status
+        - questionCount
+        - overallScore
+        - maxScore
+        - recordingStatus
+        - createdAt
+        - startedAt
+        - endedAt
+    ResumeInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: number
+        extractionStatus:
+          $ref: "#/components/schemas/ExtractionStatus"
+        failureCode:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - filename
+        - mimeType
+        - sizeBytes
+        - extractionStatus
+        - failureCode
+    Question:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: number
+        text:
+          type: string
+        category:
+          $ref: "#/components/schemas/QuestionCategory"
+        difficulty:
+          $ref: "#/components/schemas/Difficulty"
+        targetSkills:
+          type: array
+          items:
+            type: string
+        evaluationCriteria:
+          type: array
+          items:
+            type: string
+        expectedAnswerPoints:
+          type: array
+          items:
+            type: string
+        source:
+          $ref: "#/components/schemas/QuestionSource"
+      required:
+        - id
+        - sequence
+        - text
+        - category
+        - difficulty
+        - targetSkills
+        - evaluationCriteria
+        - expectedAnswerPoints
+        - source
+    Invitation:
+      type: object
+      properties:
+        code:
+          type: string
+        accessCode:
+          type: string
+        url:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - code
+        - accessCode
+        - url
+        - expiresAt
+    InterviewLiveState:
+      type: object
+      properties:
+        progress:
+          $ref: "#/components/schemas/InterviewProgress"
+        primaryCamera:
+          $ref: "#/components/schemas/MediaConnectionStatus"
+        secondaryCamera:
+          $ref: "#/components/schemas/MediaConnectionStatus"
+        recentEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProctoringEvent"
+        updatedAt:
+          type: string
+      required:
+        - progress
+        - primaryCamera
+        - secondaryCamera
+        - recentEvents
+        - updatedAt
+      description: Live snapshot for the monitor page (to be replaced/augmented by Socket.IO events, §11.2).
+    ProctoringEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/ProctoringEventType"
+        occurredAt:
+          type: string
+        durationSeconds:
+          type:
+            - number
+            - "null"
+        sourceCamera:
+          $ref: "#/components/schemas/CameraSource"
+        description:
+          type: string
+        reviewStatus:
+          $ref: "#/components/schemas/ProctoringReviewStatus"
+        reviewerNote:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - type
+        - occurredAt
+        - durationSeconds
+        - sourceCamera
+        - description
+        - reviewStatus
+        - reviewerNote
+    InterviewDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        jobTitle:
+          type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+        questionCount:
+          type: number
+        overallScore:
+          type:
+            - number
+            - "null"
+        maxScore:
+          type: number
+        recordingStatus:
+          $ref: "#/components/schemas/RecordingStatus"
+        createdAt:
+          type: string
+        startedAt:
+          type:
+            - string
+            - "null"
+        endedAt:
+          type:
+            - string
+            - "null"
+        jobDescription:
+          type: string
+        requiredSkills:
+          type: array
+          items:
+            type: string
+        config:
+          $ref: "#/components/schemas/InterviewConfig"
+        resume:
+          anyOf:
+            - $ref: "#/components/schemas/ResumeInfo"
+            - type: "null"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        invitation:
+          anyOf:
+            - $ref: "#/components/schemas/Invitation"
+            - type: "null"
+        live:
+          anyOf:
+            - $ref: "#/components/schemas/InterviewLiveState"
+            - type: "null"
+      required:
+        - candidateEmail
+        - candidateName
+        - config
+        - createdAt
+        - endedAt
+        - id
+        - invitation
+        - jobDescription
+        - jobTitle
+        - live
+        - maxScore
+        - overallScore
+        - questionCount
+        - questions
+        - recordingStatus
+        - requiredSkills
+        - resume
+        - startedAt
+        - status
+    InterviewStats:
+      type: object
+      properties:
+        total:
+          type: number
+        inProgress:
+          type: number
+        completed:
+          type: number
+        pendingReview:
+          type: number
+      required:
+        - total
+        - inProgress
+        - completed
+        - pendingReview
+    ListInterviewsQuery:
+      type: object
+      properties:
+        search:
+          type: string
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+    ListInterviewsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterviewSummary"
+        stats:
+          $ref: "#/components/schemas/InterviewStats"
+      required:
+        - items
+        - stats
+    CreateInterviewRequest:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+        requiredSkills:
+          type: array
+          items:
+            type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        config:
+          type: object
+          properties:
+            questionCount:
+              type: number
+              description: Backend defaults to 10 when omitted (PRD §19).
+            durationMinutes:
+              type: number
+            difficulty:
+              $ref: "#/components/schemas/Difficulty"
+            experienceLevel:
+              $ref: "#/components/schemas/ExperienceLevel"
+            categories:
+              type: array
+              items:
+                $ref: "#/components/schemas/QuestionCategory"
+            allowSkip:
+              type: boolean
+            allowFollowUps:
+              type: boolean
+            maxFollowUps:
+              type: number
+            secondaryCamera:
+              $ref: "#/components/schemas/SecondaryCameraPolicy"
+            recordingEnabled:
+              type: boolean
+              description: Requested by the recruiter; the server still applies RECORDING_ENABLED policy.
+      required:
+        - jobTitle
+        - jobDescription
+        - requiredSkills
+        - candidateName
+        - candidateEmail
+        - config
+    UpdateInterviewRequest:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+        requiredSkills:
+          type: array
+          items:
+            type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        config:
+          type: object
+          properties:
+            questionCount:
+              type: number
+              description: Backend defaults to 10 when omitted (PRD §19).
+            durationMinutes:
+              type: number
+            difficulty:
+              $ref: "#/components/schemas/Difficulty"
+            experienceLevel:
+              $ref: "#/components/schemas/ExperienceLevel"
+            categories:
+              type: array
+              items:
+                $ref: "#/components/schemas/QuestionCategory"
+            allowSkip:
+              type: boolean
+            allowFollowUps:
+              type: boolean
+            maxFollowUps:
+              type: number
+            secondaryCamera:
+              $ref: "#/components/schemas/SecondaryCameraPolicy"
+            recordingEnabled:
+              type: boolean
+              description: Requested by the recruiter; the server still applies RECORDING_ENABLED policy.
+      description: "PATCH /interviews/:id (DRAFT only) → InterviewDetail. Omitted fields are unchanged; `config` is merged into the saved config. Related: DELETE /interviews/:id (DRAFT only) → 204, and POST /interviews/:id/cancel (any unfinished status) → InterviewDetail with status CANCELLED."
+    UploadResumeResponse:
+      type: object
+      properties:
+        resume:
+          $ref: "#/components/schemas/ResumeInfo"
+      required:
+        - resume
+    GenerateQuestionsRequest:
+      type: object
+      properties:
+        count:
+          type: number
+          description: Omit to let the backend apply its default (10).
+    GenerateQuestionsResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+      required:
+        - questions
+    QuestionDraft:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        category:
+          $ref: "#/components/schemas/QuestionCategory"
+        difficulty:
+          $ref: "#/components/schemas/Difficulty"
+        targetSkills:
+          type: array
+          items:
+            type: string
+        evaluationCriteria:
+          type: array
+          items:
+            type: string
+        expectedAnswerPoints:
+          type: array
+          items:
+            type: string
+        source:
+          $ref: "#/components/schemas/QuestionSource"
+      required:
+        - text
+        - category
+        - difficulty
+        - targetSkills
+        - evaluationCriteria
+        - expectedAnswerPoints
+        - source
+      description: Array order is the approved sequence. Items without an id are new recruiter-authored questions.
+    UpdateQuestionsRequest:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionDraft"
+      required:
+        - questions
+    UpdateQuestionsResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+      required:
+        - questions
+    MarkReadyResponse:
+      type: object
+      properties:
+        interview:
+          $ref: "#/components/schemas/InterviewDetail"
+        invitation:
+          $ref: "#/components/schemas/Invitation"
+      required:
+        - interview
+        - invitation
+    CandidateAccessRequest:
+      type: object
+      properties:
+        invitationCode:
+          type: string
+        accessCode:
+          type: string
+      required:
+        - invitationCode
+        - accessCode
+    CandidateAccessResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - sessionId
+        - expiresAt
+      description: The scoped session token is set as an HttpOnly cookie; only the opaque id is returned.
+    RecordingNotice:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+          description: When true the interview cannot proceed without recording consent, and the UI says so.
+        noticeVersion:
+          type: string
+        feeds:
+          type: array
+          items:
+            type: string
+        purpose:
+          type: string
+        access:
+          type: string
+        retention:
+          type: string
+      required:
+        - enabled
+        - required
+        - noticeVersion
+        - feeds
+        - purpose
+        - access
+        - retention
+    ProctoringNotice:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        noticeVersion:
+          type: string
+        description:
+          type: string
+      required:
+        - enabled
+        - noticeVersion
+        - description
+    ConsentState:
+      type: object
+      properties:
+        recordingConsent:
+          type: boolean
+        proctoringConsent:
+          type: boolean
+        consentedAt:
+          type: string
+      required:
+        - recordingConsent
+        - proctoringConsent
+        - consentedAt
+    PhonePairing:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresAt:
+          type: string
+        status:
+          $ref: "#/components/schemas/PairingStatus"
+      required:
+        - url
+        - expiresAt
+        - status
+    CandidateSessionView:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        interviewId:
+          type: string
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+        candidateName:
+          type: string
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        estimatedDurationMinutes:
+          type: number
+        questionCount:
+          type: number
+        allowSkip:
+          type: boolean
+        instructions:
+          type: array
+          items:
+            type: string
+        recording:
+          $ref: "#/components/schemas/RecordingNotice"
+        proctoring:
+          $ref: "#/components/schemas/ProctoringNotice"
+        secondaryCamera:
+          $ref: "#/components/schemas/SecondaryCameraPolicy"
+        consent:
+          anyOf:
+            - $ref: "#/components/schemas/ConsentState"
+            - type: "null"
+        pairing:
+          anyOf:
+            - $ref: "#/components/schemas/PhonePairing"
+            - type: "null"
+        expiresAt:
+          type: string
+      required:
+        - sessionId
+        - interviewId
+        - status
+        - candidateName
+        - jobTitle
+        - companyName
+        - estimatedDurationMinutes
+        - questionCount
+        - allowSkip
+        - instructions
+        - recording
+        - proctoring
+        - secondaryCamera
+        - consent
+        - pairing
+        - expiresAt
+    ConsentRequest:
+      type: object
+      properties:
+        recordingNoticeVersion:
+          type: string
+        proctoringNoticeVersion:
+          type: string
+        recordingConsent:
+          type: boolean
+        proctoringConsent:
+          type: boolean
+      required:
+        - recordingNoticeVersion
+        - proctoringNoticeVersion
+        - recordingConsent
+        - proctoringConsent
+    ConsentResponse:
+      type: object
+      properties:
+        consent:
+          $ref: "#/components/schemas/ConsentState"
+      required:
+        - consent
+    CandidateQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: number
+        text:
+          type: string
+        category:
+          $ref: "#/components/schemas/QuestionCategory"
+      required:
+        - id
+        - sequence
+        - text
+        - category
+    CurrentQuestionResponse:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+        question:
+          anyOf:
+            - $ref: "#/components/schemas/CandidateQuestion"
+            - type: "null"
+          description: null once every question has been answered or skipped.
+        progress:
+          $ref: "#/components/schemas/InterviewProgress"
+        startedAt:
+          type:
+            - string
+            - "null"
+        durationMinutes:
+          type: number
+        allowSkip:
+          type: boolean
+      required:
+        - status
+        - question
+        - progress
+        - startedAt
+        - durationMinutes
+        - allowSkip
+    SubmitAnswerRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        transcript:
+          type: string
+        durationSeconds:
+          type: number
+        inputMode:
+          $ref: "#/components/schemas/AnswerInputMode"
+        idempotencyKey:
+          type: string
+          description: Same key on retry → server returns the saved result instead of a duplicate answer.
+      required:
+        - questionId
+        - transcript
+        - durationSeconds
+        - inputMode
+        - idempotencyKey
+    SkipQuestionRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        idempotencyKey:
+          type: string
+      required:
+        - questionId
+        - idempotencyKey
+    CompleteSessionResponse:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/InterviewStatus"
+        submittedAt:
+          type: string
+        progress:
+          $ref: "#/components/schemas/InterviewProgress"
+      required:
+        - status
+        - submittedAt
+        - progress
+    Recording:
+      type: object
+      properties:
+        id:
+          type: string
+        interviewId:
+          type: string
+        status:
+          $ref: "#/components/schemas/RecordingStatus"
+        mimeType:
+          type:
+            - string
+            - "null"
+        sizeBytes:
+          type:
+            - number
+            - "null"
+        durationSeconds:
+          type:
+            - number
+            - "null"
+        startedAt:
+          type:
+            - string
+            - "null"
+        completedAt:
+          type:
+            - string
+            - "null"
+        failureCode:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - interviewId
+        - status
+        - mimeType
+        - sizeBytes
+        - durationSeconds
+        - startedAt
+        - completedAt
+        - failureCode
+    ListRecordingsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recording"
+      required:
+        - items
+    PlaybackUrlResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - url
+        - expiresAt
+      description: Short-lived signed URL. Never log or persist it.
+    CriterionScore:
+      type: object
+      properties:
+        criterion:
+          type: string
+        score:
+          type: number
+        maxScore:
+          type: number
+      required:
+        - criterion
+        - score
+        - maxScore
+    EvaluationOverride:
+      type: object
+      properties:
+        score:
+          type: number
+        reason:
+          type: string
+        reviewerName:
+          type: string
+        reviewedAt:
+          type: string
+      required:
+        - score
+        - reason
+        - reviewerName
+        - reviewedAt
+    Evaluation:
+      type: object
+      properties:
+        id:
+          type: string
+        questionId:
+          type: string
+        score:
+          type:
+            - number
+            - "null"
+          description: null when the question was unanswered — distinct from a zero score (PRD §8.3).
+        maxScore:
+          type: number
+        criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/CriterionScore"
+        evidence:
+          type: array
+          items:
+            type: string
+        explanation:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        gaps:
+          type: array
+          items:
+            type: string
+        reviewStatus:
+          $ref: "#/components/schemas/EvaluationReviewStatus"
+        override:
+          anyOf:
+            - $ref: "#/components/schemas/EvaluationOverride"
+            - type: "null"
+          description: Original AI assessment is preserved; override sits alongside it.
+      required:
+        - id
+        - questionId
+        - score
+        - maxScore
+        - criteria
+        - evidence
+        - explanation
+        - strengths
+        - gaps
+        - reviewStatus
+        - override
+    ReviewEvaluationRequest:
+      type: object
+      properties:
+        reviewStatus:
+          type: string
+          enum:
+            - CONFIRMED
+            - OVERRIDDEN
+        score:
+          type: number
+        reason:
+          type: string
+      required:
+        - reviewStatus
+    ReviewProctoringEventRequest:
+      type: object
+      properties:
+        reviewStatus:
+          $ref: "#/components/schemas/ProctoringReviewStatus"
+        reviewerNote:
+          type: string
+      required:
+        - reviewStatus
+    ReportAnswer:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/AnswerStatus"
+        transcript:
+          type: string
+        durationSeconds:
+          type:
+            - number
+            - "null"
+        inputMode:
+          anyOf:
+            - $ref: "#/components/schemas/AnswerInputMode"
+            - type: "null"
+        submittedAt:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - status
+        - transcript
+        - durationSeconds
+        - inputMode
+        - submittedAt
+    ReportItem:
+      type: object
+      properties:
+        question:
+          $ref: "#/components/schemas/Question"
+        answer:
+          anyOf:
+            - $ref: "#/components/schemas/ReportAnswer"
+            - type: "null"
+        evaluation:
+          anyOf:
+            - $ref: "#/components/schemas/Evaluation"
+            - type: "null"
+      required:
+        - question
+        - answer
+        - evaluation
+    OverallAssessment:
+      type: object
+      properties:
+        score:
+          type:
+            - number
+            - "null"
+        maxScore:
+          type: number
+        summary:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        gaps:
+          type: array
+          items:
+            type: string
+      required:
+        - score
+        - maxScore
+        - summary
+        - strengths
+        - gaps
+    InterviewReport:
+      type: object
+      properties:
+        interview:
+          type: object
+          properties:
+            requiredSkills:
+              type: array
+              items:
+                type: string
+            id:
+              type: string
+            jobTitle:
+              type: string
+            candidateName:
+              type: string
+            candidateEmail:
+              type: string
+            status:
+              $ref: "#/components/schemas/InterviewStatus"
+            questionCount:
+              type: number
+            overallScore:
+              type:
+                - number
+                - "null"
+            maxScore:
+              type: number
+            recordingStatus:
+              $ref: "#/components/schemas/RecordingStatus"
+            createdAt:
+              type: string
+            startedAt:
+              type:
+                - string
+                - "null"
+            endedAt:
+              type:
+                - string
+                - "null"
+          required:
+            - candidateEmail
+            - candidateName
+            - createdAt
+            - endedAt
+            - id
+            - jobTitle
+            - maxScore
+            - overallScore
+            - questionCount
+            - recordingStatus
+            - requiredSkills
+            - startedAt
+            - status
+        evaluationStatus:
+          $ref: "#/components/schemas/EvaluationStatus"
+        evaluationFailureCode:
+          type:
+            - string
+            - "null"
+        overall:
+          anyOf:
+            - $ref: "#/components/schemas/OverallAssessment"
+            - type: "null"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportItem"
+        proctoringEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProctoringEvent"
+        generatedAt:
+          type: string
+      required:
+        - interview
+        - evaluationStatus
+        - evaluationFailureCode
+        - overall
+        - items
+        - proctoringEvents
+        - generatedAt
+    EvaluateResponse:
+      type: object
+      properties:
+        evaluationStatus:
+          $ref: "#/components/schemas/EvaluationStatus"
+      required:
+        - evaluationStatus
+    MediaTokenRequest:
+      type: object
+      properties:
+        device:
+          type: string
+          enum:
+            - primary
+            - secondary
+            - viewer
+        pairingToken:
+          type: string
+          description: "'secondary' first time: the token from the QR pairing link. Single use."
+        deviceToken:
+          type: string
+          description: "'secondary' after a reload: the deviceToken returned when the phone paired."
+      description: "POST /interviews/:id/media-token. The credential decides the role: recruiter cookie → 'viewer' (hidden, subscribe-only), candidate cookie → 'primary' (laptop), one-time pairing token → 'secondary' (phone)."
+    MediaTokenResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        token:
+          type: string
+        room:
+          type: string
+        identity:
+          type: string
+        expiresAt:
+          type: string
+        deviceToken:
+          type: string
+          description: "Only when a phone pairs: keep it (e.g. sessionStorage) to get new tokens after a reload. The next pairing replaces it, so a replaced phone can no longer rejoin."
+      required:
+        - url
+        - token
+        - room
+        - identity
+        - expiresAt
+      description: Short-lived, room-scoped LiveKit credentials.
+    CreateProctoringEventRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - FACE_ABSENT
+            - MULTIPLE_FACES
+            - LOOKING_AWAY
+            - TAB_HIDDEN
+            - AUDIO_ISSUE
+        occurredAt:
+          type: string
+        durationSeconds:
+          type: number
+        sourceCamera:
+          $ref: "#/components/schemas/CameraSource"
+        description:
+          type: string
+      required:
+        - type
+      description: POST /interviews/:id/events (candidate session, while the interview runs). Observation only.
+    ProviderConfigState:
+      type: string
+      enum:
+        - configured
+        - not_configured
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+        database:
+          type: string
+          enum:
+            - ok
+            - error
+        nodeEnv:
+          type: string
+        media:
+          $ref: "#/components/schemas/ProviderConfigState"
+        storage:
+          $ref: "#/components/schemas/ProviderConfigState"
+        recording:
+          type: string
+          enum:
+            - enabled
+            - disabled
+        ai:
+          $ref: "#/components/schemas/ProviderConfigState"
+        documents:
+          $ref: "#/components/schemas/ProviderConfigState"
+      required:
+        - status
+        - database
+        - nodeEnv
+        - media
+        - storage
+        - recording
+        - ai
+        - documents
+      description: "GET /health (public): configuration state only, never secrets."
+    RealtimeRole:
+      type: string
+      enum:
+        - recruiter
+        - candidate
+      description: Which session the socket should use; sent as `auth.role` in the Socket.IO handshake.
+    RealtimeEventMap:
+      type: object
+      properties:
+        interview.status_changed:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            status:
+              $ref: "#/components/schemas/InterviewStatus"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - status
+            - timestamp
+        interview.question_changed:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            questionId:
+              type: string
+            sequence:
+              type: number
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - questionId
+            - sequence
+            - timestamp
+        answer.saved:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            questionId:
+              type: string
+            status:
+              $ref: "#/components/schemas/AnswerStatus"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - questionId
+            - status
+            - timestamp
+        proctoring.event_created:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            eventId:
+              type: string
+            type:
+              $ref: "#/components/schemas/ProctoringEventType"
+            sourceCamera:
+              $ref: "#/components/schemas/CameraSource"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - eventId
+            - type
+            - sourceCamera
+            - timestamp
+        media.secondary_connected:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            status:
+              $ref: "#/components/schemas/PairingStatus"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - status
+            - timestamp
+        media.secondary_disconnected:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            status:
+              $ref: "#/components/schemas/PairingStatus"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - status
+            - timestamp
+        recording.status_changed:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            recordingId:
+              type: string
+            status:
+              $ref: "#/components/schemas/RecordingStatus"
+            failureCode:
+              type:
+                - string
+                - "null"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - recordingId
+            - status
+            - failureCode
+            - timestamp
+          description: "`failureCode` is a safe code such as EGRESS_START_FAILED; never a URL or provider payload."
+        evaluation.status_changed:
+          type: object
+          properties:
+            interviewId:
+              type: string
+            status:
+              $ref: "#/components/schemas/EvaluationStatus"
+            timestamp:
+              type: string
+          required:
+            - interviewId
+            - status
+            - timestamp
+      required:
+        - interview.status_changed
+        - interview.question_changed
+        - answer.saved
+        - proctoring.event_created
+        - media.secondary_connected
+        - media.secondary_disconnected
+        - recording.status_changed
+        - evaluation.status_changed
+    RealtimeEventName:
+      type: string
+      enum:
+        - interview.status_changed
+        - interview.question_changed
+        - answer.saved
+        - proctoring.event_created
+        - media.secondary_connected
+        - media.secondary_disconnected
+        - recording.status_changed
+        - evaluation.status_changed
+    CandidateRealtimeEventName:
+      type: string
+      enum:
+        - interview.status_changed
+        - media.secondary_connected
+        - media.secondary_disconnected
+      description: The only events a candidate socket receives, and only for its own interview.

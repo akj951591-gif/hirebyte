@@ -1,0 +1,25 @@
+# Local PostgreSQL for the HireByte API (development and tests only).
+# Start: npm run db:up (from backend/api). Data persists in the named volume `hirebyte-pg`.
+name: hirebyte
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: hirebyte-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hirebyte
+      POSTGRES_PASSWORD: hirebyte_local_dev
+      POSTGRES_DB: hirebyte
+    ports:
+      - '5432:5432'
+    volumes:
+      - hirebyte-pg:/var/lib/postgresql
+      - ./prisma/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hirebyte -d hirebyte']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  hirebyte-pg:

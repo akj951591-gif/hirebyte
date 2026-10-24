@@ -1,0 +1,61 @@
+{
+  "name": "hirebyte-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:api": "vitest run --project api",
+    "db:up": "docker compose -f ../docker-compose.yml up -d",
+    "db:down": "docker compose -f ../docker-compose.yml down",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "contract:openapi": "tsx src/scripts/generate-openapi.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@aws-sdk/s3-request-presigner": "^3.1156.0",
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.0",
+    "helmet": "^8.1.0",
+    "livekit-server-sdk": "^2.13.0",
+    "multer": "^2.5.0",
+    "pdfkit": "^0.17.2",
+    "socket.io": "^4.8.4",
+    "tsx": "^4.20.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^24.0.0",
+    "@types/pdfkit": "^0.17.7",
+    "@types/supertest": "^6.0.3",
+    "prisma": "7.10.1",
+    "socket.io-client": "^4.8.4",
+    "supertest": "^7.1.0",
+    "ts-json-schema-generator": "^2.9.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}

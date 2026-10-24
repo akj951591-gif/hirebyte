@@ -1,0 +1,57 @@
+@import './theme/tokens.css';
+@import 'tailwindcss';
+
+/* Tailwind 4 reads the existing JS theme (colors/radius/shadows mapped to tokens.css). */
+@config '../tailwind.config.ts';
+
+@layer base {
+  /* Tailwind 4 defaults borders to currentColor and buttons to the default cursor; keep the v3 look. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: rgb(var(--hb-line));
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-surface-muted font-sans text-ink antialiased;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand/60 ring-offset-2;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-surface shadow-card;
+  }
+  .input {
+    @apply block w-full rounded border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle
+      focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:bg-surface-sunken;
+  }
+  .input-invalid {
+    @apply border-danger focus:border-danger focus:ring-danger/30;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

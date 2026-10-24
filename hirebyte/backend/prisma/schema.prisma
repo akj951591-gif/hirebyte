@@ -1,0 +1,447 @@
+// HireByte database schema (PRD v2.1 §10). Owned by the database steward: coordinate before changing.
+// Enum values mirror backend/contracts/api-types.ts so API DTOs can pass them through unchanged.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../api/src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------------------------------------
+
+enum UserRole {
+  RECRUITER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum InterviewStatus {
+  DRAFT
+  READY
+  ONBOARDING
+  IN_PROGRESS
+  PROCESSING_ANSWER
+  COMPLETED
+  EVALUATING
+  EVALUATED
+  EVALUATION_FAILED
+  REVIEWED
+  CANCELLED
+}
+
+enum EvaluationStatus {
+  NOT_STARTED
+  EVALUATING
+  EVALUATED
+  FAILED
+}
+
+enum CandidateSessionStatus {
+  ACTIVE
+  ENDED
+  REVOKED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionCategory {
+  TECHNICAL
+  BEHAVIORAL
+  SITUATIONAL
+  RESUME
+  SYSTEM_DESIGN
+}
+
+enum QuestionSource {
+  AI_GENERATED
+  RECRUITER
+  FOLLOW_UP
+}
+
+enum AnswerStatus {
+  ANSWERED
+  SKIPPED
+  UNANSWERED
+}
+
+enum AnswerInputMode {
+  VOICE
+  TEXT
+}
+
+enum ExtractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EvaluationReviewStatus {
+  AI_ONLY
+  CONFIRMED
+  OVERRIDDEN
+}
+
+enum ProctoringEventType {
+  FACE_ABSENT
+  MULTIPLE_FACES
+  LOOKING_AWAY
+  TAB_HIDDEN
+  SECONDARY_CONNECTED
+  SECONDARY_DISCONNECTED
+  AUDIO_ISSUE
+}
+
+enum CameraSource {
+  PRIMARY
+  SECONDARY
+}
+
+enum ProctoringReviewStatus {
+  UNREVIEWED
+  NO_CONCERN
+  NEEDS_FOLLOW_UP
+}
+
+enum PairingStatus {
+  NOT_PAIRED
+  PAIRED
+  DISCONNECTED
+  EXPIRED
+}
+
+enum MediaConnectionStatus {
+  NOT_CONNECTED
+  CONNECTING
+  CONNECTED
+  DISCONNECTED
+}
+
+enum RecordingStatus {
+  NOT_ENABLED
+  PENDING
+  RECORDING
+  FINALIZING
+  READY
+  FAILED
+  DELETED
+}
+
+// ------------------------------------------------------------------------------------------------
+// Identity and sessions
+// ------------------------------------------------------------------------------------------------
+
+model User {
+  id               String     @id @default(uuid()) @db.Uuid
+  email            String     @unique
+  name             String
+  passwordHash     String
+  role             UserRole   @default(RECRUITER)
+  status           UserStatus @default(ACTIVE)
+  failedLoginCount Int        @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  sessions          UserSession[]
+  interviews        Interview[]
+  evaluationReviews Evaluation[]      @relation("EvaluationReviewer")
+  eventReviews      ProctoringEvent[] @relation("ProctoringReviewer")
+}
+
+/// Recruiter browser session. The cookie holds a random token; only its hash is stored.
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Short-lived, interview-scoped candidate session (PRD §2.1). Only the token hash is stored.
+model CandidateSession {
+  id           String                 @id @default(uuid()) @db.Uuid
+  interviewId  String                 @db.Uuid
+  tokenHash    String                 @unique
+  status       CandidateSessionStatus @default(ACTIVE)
+  expiresAt    DateTime
+  lastAccessAt DateTime               @default(now())
+  createdAt    DateTime               @default(now())
+
+  interview Interview       @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  consents  ConsentRecord[]
+
+  @@index([interviewId])
+}
+
+/// One invitation per interview. The code is a lookup key; the access code is verified by hash and
+/// kept encrypted so the owning recruiter can re-send it.
+model Invitation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  interviewId         String    @unique @db.Uuid
+  code                String    @unique
+  accessCodeHash      String
+  accessCodeEncrypted String
+  expiresAt           DateTime
+  failedAttempts      Int       @default(0)
+  lockedAt            DateTime?
+  createdAt           DateTime  @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------------------------------------------
+// Interviews
+// ------------------------------------------------------------------------------------------------
+
+model Interview {
+  id                    String           @id @default(uuid()) @db.Uuid
+  recruiterId           String           @db.Uuid
+  candidateName         String
+  candidateEmail        String
+  jobTitle              String
+  jobDescription        String
+  requiredSkills        String[]
+  /// InterviewConfig (contract): questionCount, durationMinutes, difficulty, ... (validated in the API)
+  config                Json
+  status                InterviewStatus  @default(DRAFT)
+  evaluationStatus      EvaluationStatus @default(NOT_STARTED)
+  evaluationFailureCode String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  startedAt             DateTime?
+  endedAt               DateTime?
+
+  recruiter         User               @relation(fields: [recruiterId], references: [id])
+  invitation        Invitation?
+  candidateSessions CandidateSession[]
+  resume            Resume?
+  questions         Question[]
+  answers           Answer[]
+  evaluations       Evaluation[]
+  proctoringEvents  ProctoringEvent[]
+  mediaSession      MediaSession?
+  consents          ConsentRecord[]
+  recordings        Recording[]
+
+  @@index([recruiterId, createdAt])
+  @@index([status])
+}
+
+model Resume {
+  id               String           @id @default(uuid()) @db.Uuid
+  interviewId      String           @unique @db.Uuid
+  filename         String
+  mimeType         String
+  sizeBytes        Int
+  storageKey       String?
+  extractedText    String?
+  extractionStatus ExtractionStatus @default(PENDING)
+  failureCode      String?
+  createdAt        DateTime         @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+}
+
+model Question {
+  id           String           @id @default(uuid()) @db.Uuid
+  interviewId  String           @db.Uuid
+  sequence     Int
+  text         String
+  category     QuestionCategory
+  difficulty   Difficulty
+  targetSkills String[]
+  /// { evaluationCriteria: string[], expectedAnswerPoints: string[] }
+  rubric       Json
+  source       QuestionSource
+  createdAt    DateTime         @default(now())
+
+  interview  Interview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  answer     Answer?
+  evaluation Evaluation?
+
+  @@unique([interviewId, sequence])
+}
+
+model Answer {
+  id              String           @id @default(uuid()) @db.Uuid
+  interviewId     String           @db.Uuid
+  questionId      String           @unique @db.Uuid
+  transcript      String           @default("")
+  durationSeconds Float?
+  status          AnswerStatus
+  inputMode       AnswerInputMode?
+  /// Client-supplied key; a retry with the same key returns the saved result instead of a duplicate.
+  idempotencyKey  String?          @unique
+  submittedAt     DateTime?
+  createdAt       DateTime         @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question  Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+}
+
+/// Written by the evaluation workstream (E). Reviewer overrides keep the original AI score.
+model Evaluation {
+  id             String                 @id @default(uuid()) @db.Uuid
+  interviewId    String                 @db.Uuid
+  questionId     String                 @unique @db.Uuid
+  score          Float?
+  maxScore       Float                  @default(10)
+  criteria       Json
+  evidence       String[]
+  explanation    String
+  strengths      String[]
+  gaps           String[]
+  reviewStatus   EvaluationReviewStatus @default(AI_ONLY)
+  overrideScore  Float?
+  overrideReason String?
+  reviewerId     String?                @db.Uuid
+  reviewedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question  Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("EvaluationReviewer", fields: [reviewerId], references: [id])
+
+  @@index([interviewId])
+}
+
+/// Observations for human review — never a cheating verdict (PRD §13).
+model ProctoringEvent {
+  id                String                 @id @default(uuid()) @db.Uuid
+  interviewId       String                 @db.Uuid
+  type              ProctoringEventType
+  occurredAt        DateTime
+  durationSeconds   Float?
+  sourceCamera      CameraSource
+  description       String
+  evidenceReference String?
+  reviewStatus      ProctoringReviewStatus @default(UNREVIEWED)
+  reviewerNote      String?
+  reviewerId        String?                @db.Uuid
+  reviewedAt        DateTime?
+  createdAt         DateTime               @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("ProctoringReviewer", fields: [reviewerId], references: [id])
+
+  @@index([interviewId, occurredAt])
+}
+
+// ------------------------------------------------------------------------------------------------
+// Media, consent and recordings (workstream D)
+// ------------------------------------------------------------------------------------------------
+
+model MediaSession {
+  id                  String                @id @default(uuid()) @db.Uuid
+  interviewId         String                @unique @db.Uuid
+  roomName            String                @unique
+  primaryStatus       MediaConnectionStatus @default(NOT_CONNECTED)
+  secondaryStatus     MediaConnectionStatus @default(NOT_CONNECTED)
+  phoneStatus         PairingStatus         @default(NOT_PAIRED)
+  /// One-time phone pairing token: hash for verification, encrypted copy so the QR stays stable.
+  pairingTokenHash    String?               @unique
+  pairingTokenEncrypted String?
+  pairingExpiresAt    DateTime?
+  /// Hash of the token the paired phone keeps to rejoin after a reload; each new pairing replaces it.
+  phoneDeviceTokenHash String?             @unique
+  pairedAt            DateTime?
+  disconnectedAt      DateTime?
+  updatedAt           DateTime              @updatedAt
+  createdAt           DateTime              @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+}
+
+model ConsentRecord {
+  id                      String   @id @default(uuid()) @db.Uuid
+  interviewId             String   @db.Uuid
+  candidateSessionId      String   @db.Uuid
+  recordingConsent        Boolean
+  proctoringConsent       Boolean
+  recordingNoticeVersion  String
+  proctoringNoticeVersion String
+  recordingEnabled        Boolean
+  /// Feeds the notice said would be recorded (empty when recording is off or declined).
+  recordedFeeds           String[] @default([])
+  consentedAt             DateTime @default(now())
+
+  interview        Interview        @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  candidateSession CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
+  recordings       Recording[]
+
+  @@index([interviewId, consentedAt])
+}
+
+model Recording {
+  id                 String          @id @default(uuid()) @db.Uuid
+  interviewId        String          @db.Uuid
+  provider           String          @default("livekit")
+  egressId           String?         @unique
+  status             RecordingStatus
+  /// Opaque R2 key only (recordings/{interviewId}/{recordingId}/composite.mp4); never a URL or secret.
+  objectKey          String?
+  mimeType           String?
+  sizeBytes          BigInt?
+  durationSeconds    Float?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  consentRecordId    String?         @db.Uuid
+  retentionExpiresAt DateTime?
+  deletedAt          DateTime?
+  failureCode        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  interview     Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  consentRecord ConsentRecord? @relation(fields: [consentRecordId], references: [id])
+
+  @@index([interviewId, createdAt])
+}
+
+/// Provider webhook deliveries already processed (idempotency, PRD §4.1).
+model WebhookDelivery {
+  id         String   @id
+  provider   String
+  event      String
+  receivedAt DateTime @default(now())
+}
+
+model AuditEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?
+  actorRole    String
+  action       String
+  resourceType String
+  resourceId   String?
+  /// Safe metadata only — never secrets, tokens or signed URLs.
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}

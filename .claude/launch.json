@@ -1,0 +1,55 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-fixtures",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--mode",
+        "fixtures",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "cwd": "hirebyte/frontend",
+      "port": 5173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "node_modules/tsx/dist/cli.mjs",
+        "watch",
+        "src/server.ts"
+      ],
+      "cwd": "hirebyte/backend/api",
+      "port": 4000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "cwd": "hirebyte/frontend",
+      "port": 5173
+    },
+    {
+      "name": "document-service",
+      "runtimeExecutable": "D:/projects/hirebyte/hirebyte/backend/services/document-service/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--port",
+        "8001"
+      ],
+      "cwd": "hirebyte/backend/services/document-service",
+      "port": 8001
+    }
+  ]
+}
