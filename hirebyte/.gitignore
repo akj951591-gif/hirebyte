@@ -1,0 +1,27 @@
+
+# Python virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Node.js dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Build and test files
+dist/
+build/
+.pytest_cache/
+.coverage
+
+# macOS files
+.DS_Store
