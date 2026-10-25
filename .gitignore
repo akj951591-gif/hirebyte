@@ -3,3 +3,6 @@
 .env
 *.zip
 deploy-out/
+
+# Local Claude Code settings and launch config: machine-specific, never commit.
+.claude/
