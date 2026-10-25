@@ -1,7 +1,19 @@
 # HTTPS for the Elastic Beanstalk demo: Caddy gets Let's Encrypt certificates for both names
 # (DNS must point at this instance first) and serves the built frontend plus the API.
+{
+	# The security group only opens TCP 443, so advertising HTTP/3 (UDP) would leave browsers
+	# trying a QUIC path that can never work.
+	servers {
+		protocols h1 h2
+	}
+}
+
 bulkblast.in {
 	encode gzip zstd
+
+	# Access log (cookies and Authorization headers are redacted by default); read with
+	# docker compose logs caddy.
+	log
 
 	# Same origin as the SPA, so the session cookies and Socket.IO need no CORS.
 	handle /api/* {
@@ -18,5 +30,6 @@ bulkblast.in {
 }
 
 api.bulkblast.in {
+	log
 	reverse_proxy api:4000
 }
