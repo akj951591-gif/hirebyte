@@ -5,7 +5,16 @@ import {
   type DocumentExtractor,
   type ExtractedDocument,
 } from '../../src/providers/documents/documentService.provider.js';
-import { LlmError, type AnswerEvaluation, type AnswerEvaluationInput, type GeneratedQuestion, type LlmProvider, type QuestionGenerationInput } from '../../src/providers/llm/llm.types.js';
+import {
+  LlmError,
+  type AnswerEvaluation,
+  type AnswerEvaluationInput,
+  type GeneratedQuestion,
+  type InterviewerTurn,
+  type InterviewerTurnInput,
+  type LlmProvider,
+  type QuestionGenerationInput,
+} from '../../src/providers/llm/llm.types.js';
 import type { EgressProvider, EgressSnapshot } from '../../src/providers/media/egress.provider.js';
 import type { MediaProvider, MediaTokenRequest, MediaWebhookEvent, WebhookVerifier } from '../../src/providers/media/livekit.provider.js';
 import type { ObjectStorage } from '../../src/providers/object-storage/objectStorage.types.js';
@@ -130,6 +139,24 @@ export class FakeLlm implements LlmProvider {
   failWith: LlmError | null = null;
   /** Lets a test hold an evaluation job open. */
   gate: Promise<void> | null = null;
+  turnRequests: InterviewerTurnInput[] = [];
+  /** Interviewer turns to return next, in order; then a plain acknowledgement. */
+  nextTurns: InterviewerTurn[] = [];
+  turnFails = false;
+
+  clarificationRequests: Array<{ question: { text: string }; message: string }> = [];
+
+  async answerCandidateQuestion(input: { jobTitle: string; question: { text: string }; message: string }): Promise<{ reply: string }> {
+    this.clarificationRequests.push(input);
+    if (this.turnFails) throw new LlmError('PROVIDER_TIMEOUT', 'slow');
+    return { reply: `It asks you to explain: ${input.question.text}` };
+  }
+
+  async respondToAnswer(input: InterviewerTurnInput): Promise<InterviewerTurn> {
+    this.turnRequests.push(input);
+    if (this.turnFails) throw new LlmError('PROVIDER_TIMEOUT', 'slow');
+    return this.nextTurns.shift() ?? { reply: 'Thank you, that is clear.', followUp: null };
+  }
 
   async generateQuestions(input: QuestionGenerationInput): Promise<GeneratedQuestion[]> {
     this.questionRequests.push(input);

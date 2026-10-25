@@ -32,7 +32,7 @@ export function createPlaybackService({ db, env, storage, now, events }: AppDeps
       }
       if (!head.exists) throw new AppError(410, 'RECORDING_DELETED', 'The recording file is missing from storage.');
 
-      const ttl = env.R2_SIGNED_URL_TTL_SECONDS;
+      const ttl = env.storage.signedUrlTtlSeconds;
       const url = await storage.signedGetUrl(rec.objectKey, ttl, { contentType: rec.mimeType ?? 'video/mp4' });
       // Audit the issuance, never the URL itself (PRD §10 AuditEvent).
       await recordAudit(db, { actorId: user.id, actorRole: user.role, action: 'recording.playback_url_issued', resourceType: 'recording', resourceId: rec.id, metadata: { ttlSeconds: ttl } });

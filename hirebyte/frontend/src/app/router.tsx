@@ -8,6 +8,7 @@ import { LobbyPage } from '@/pages/candidate/LobbyPage';
 import { DeviceCheckPage } from '@/pages/candidate/DeviceCheckPage';
 import { InterviewRoomPage } from '@/pages/candidate/InterviewRoomPage';
 import { CompletionPage } from '@/pages/candidate/CompletionPage';
+import { PhoneCameraPage } from '@/pages/candidate/PhoneCameraPage';
 import { RecruiterLoginPage } from '@/pages/recruiter/RecruiterLoginPage';
 import { OverviewPage } from '@/pages/recruiter/OverviewPage';
 import { HistoryPage } from '@/pages/recruiter/HistoryPage';
@@ -22,6 +23,8 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/candidate/login" replace /> },
       { path: 'login', element: <Navigate to="/candidate/login" replace /> },
+      // Opened on the candidate's phone from the QR code; authorised by the pairing/device token, not a cookie.
+      { path: 'pair', element: <PhoneCameraPage /> },
 
       // Workstream A — candidate experience. Only candidate-safe endpoints are used under here.
       {

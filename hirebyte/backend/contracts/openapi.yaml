@@ -542,6 +542,114 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/conversation:
+    get:
+      tags:
+        - Candidate
+      summary: Everything the AI interviewer and the candidate have said so far.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /candidate/sessions/{sessionId}/ask:
+    post:
+      tags:
+        - Candidate
+      summary: Ask the interviewer about the current question (max 3 per question); it clarifies but never gives the answer.
+      security:
+        - candidateSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskInterviewerRequest"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskInterviewerResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: SESSION_EXPIRED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "503":
+          description: "Error codes: PROVIDER_UNAVAILABLE."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "504":
+          description: "Error codes: PROVIDER_TIMEOUT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /interviews:
     post:
       tags:
@@ -1614,6 +1722,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /interviews/{id}/phone-events:
+    post:
+      tags:
+        - Proctoring
+      summary: Logs an observation from the paired phone camera; authorised by the deviceToken in the body.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneProctoringEventRequest"
+      responses:
+        "201":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProctoringEvent"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: "Error codes: UNAUTHENTICATED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: FORBIDDEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: CONFLICT."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /proctoring-events/{id}/review:
     patch:
       tags:
@@ -2615,11 +2779,15 @@ components:
           type: string
         category:
           $ref: "#/components/schemas/QuestionCategory"
+        isFollowUp:
+          type: boolean
+          description: An AI follow-up to the previous answer (inserted during the interview).
       required:
         - id
         - sequence
         - text
         - category
+        - isFollowUp
     CurrentQuestionResponse:
       type: object
       properties:
@@ -2640,6 +2808,11 @@ components:
           type: number
         allowSkip:
           type: boolean
+        interviewerReply:
+          type:
+            - string
+            - "null"
+          description: What the AI interviewer says after an answer, before the next question (a short neutral acknowledgement). null when there is nothing to say, or the AI is not configured.
       required:
         - status
         - question
@@ -2647,6 +2820,7 @@ components:
         - startedAt
         - durationMinutes
         - allowSkip
+        - interviewerReply
     SubmitAnswerRequest:
       type: object
       properties:
@@ -2686,10 +2860,84 @@ components:
           type: string
         progress:
           $ref: "#/components/schemas/InterviewProgress"
+        closingMessage:
+          type: string
+          description: The interviewer's closing words, to show and read aloud.
       required:
         - status
         - submittedAt
         - progress
+        - closingMessage
+    ConversationRole:
+      type: string
+      enum:
+        - INTERVIEWER
+        - CANDIDATE
+    ConversationTurnKind:
+      type: string
+      enum:
+        - GREETING
+        - REPLY
+        - CLARIFICATION_REQUEST
+        - CLARIFICATION
+        - CLOSING
+    ConversationTurn:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          $ref: "#/components/schemas/ConversationRole"
+        kind:
+          $ref: "#/components/schemas/ConversationTurnKind"
+        text:
+          type: string
+        questionId:
+          type:
+            - string
+            - "null"
+          description: "The question the line is about (GREETING/REPLY: the question it leads into)."
+        createdAt:
+          type: string
+      required:
+        - id
+        - role
+        - kind
+        - text
+        - questionId
+        - createdAt
+      description: One line of the interview conversation. Visible to the candidate and to the recruiter.
+    ConversationResponse:
+      type: object
+      properties:
+        turns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationTurn"
+      required:
+        - turns
+      description: GET /candidate/sessions/:sessionId/conversation
+    AskInterviewerRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        message:
+          type: string
+      required:
+        - questionId
+        - message
+      description: "POST /candidate/sessions/:sessionId/ask: the candidate asks the interviewer about the current question."
+    AskInterviewerResponse:
+      type: object
+      properties:
+        question:
+          $ref: "#/components/schemas/ConversationTurn"
+        reply:
+          $ref: "#/components/schemas/ConversationTurn"
+      required:
+        - question
+        - reply
     Recording:
       type: object
       properties:
@@ -2998,6 +3246,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProctoringEvent"
+        conversation:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationTurn"
+          description: Everything the AI interviewer and the candidate said to each other, in order.
         generatedAt:
           type: string
       required:
@@ -3007,6 +3260,7 @@ components:
         - overall
         - items
         - proctoringEvents
+        - conversation
         - generatedAt
     EvaluateResponse:
       type: object
@@ -3076,6 +3330,32 @@ components:
       required:
         - type
       description: POST /interviews/:id/events (candidate session, while the interview runs). Observation only.
+    PhoneProctoringEventRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - FACE_ABSENT
+            - MULTIPLE_FACES
+            - LOOKING_AWAY
+            - TAB_HIDDEN
+            - AUDIO_ISSUE
+        occurredAt:
+          type: string
+        durationSeconds:
+          type: number
+        sourceCamera:
+          $ref: "#/components/schemas/CameraSource"
+        description:
+          type: string
+        deviceToken:
+          type: string
+          description: The deviceToken returned when the phone paired.
+      required:
+        - deviceToken
+        - type
+      description: "POST /interviews/:id/phone-events: from the paired phone, recorded as the SECONDARY camera."
     ProviderConfigState:
       type: string
       enum:

@@ -202,7 +202,7 @@ export function bankToQuestion(item: BankItem, interviewId: string, sequence: nu
 }
 
 export function toCandidateQuestion(question: Question): CandidateQuestion {
-  return { id: question.id, sequence: question.sequence, text: question.text, category: question.category };
+  return { id: question.id, sequence: question.sequence, text: question.text, category: question.category, isFollowUp: question.source === 'FOLLOW_UP' };
 }
 
 /** Builds a fixture question set; `skills` are woven into skill-based questions past the bank size. */

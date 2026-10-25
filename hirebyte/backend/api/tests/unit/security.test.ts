@@ -47,15 +47,24 @@ describe('configuration (PRD §12)', () => {
   });
 
   it('treats empty provider settings as not configured', () => {
-    const env = loadEnv({ ...base, LIVEKIT_URL: '', R2_BUCKET_NAME: '' });
+    const env = loadEnv({ ...base, LIVEKIT_URL: '', R2_BUCKET_NAME: '', STORAGE_PROVIDER: '' });
     expect(env.livekitConfigured).toBe(false);
-    expect(env.r2Configured).toBe(false);
+    expect(env.storageConfigured).toBe(false);
   });
 
-  it('derives the R2 endpoint from the account id', () => {
+  it('derives the Supabase S3 endpoint from the project ref and requires the region', () => {
+    const supabase = { ...base, STORAGE_PROVIDER: 'supabase', SUPABASE_PROJECT_REF: 'abcdref', STORAGE_ACCESS_KEY_ID: 'k', STORAGE_SECRET_ACCESS_KEY: 's', STORAGE_BUCKET: 'recordings' };
+    const env = loadEnv({ ...supabase, STORAGE_REGION: 'ap-south-1' });
+    expect(env.storage).toMatchObject({ provider: 'supabase', endpoint: 'https://abcdref.storage.supabase.co/storage/v1/s3', region: 'ap-south-1', bucket: 'recordings', signedUrlTtlSeconds: 300 });
+    expect(env.storageConfigured).toBe(true);
+    expect(() => loadEnv(supabase)).toThrow(/STORAGE_REGION/);
+    expect(() => loadEnv({ ...supabase, SUPABASE_PROJECT_REF: '', STORAGE_REGION: 'ap-south-1' })).toThrow(/SUPABASE_PROJECT_REF/);
+  });
+
+  it('still accepts the older R2_* names', () => {
     const env = loadEnv({ ...base, R2_ACCOUNT_ID: 'abc123', R2_ACCESS_KEY_ID: 'k', R2_SECRET_ACCESS_KEY: 's', R2_BUCKET_NAME: 'b' });
-    expect(env.R2_ENDPOINT).toBe('https://abc123.r2.cloudflarestorage.com');
-    expect(env.r2Configured).toBe(true);
+    expect(env.storage).toMatchObject({ provider: 'r2', endpoint: 'https://abc123.r2.cloudflarestorage.com', region: 'auto' });
+    expect(env.storageConfigured).toBe(true);
   });
 
   it('names the missing variable without echoing secret values', () => {

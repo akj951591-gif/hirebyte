@@ -40,6 +40,22 @@ export interface AnswerEvaluation {
   gaps: string[];
 }
 
+export interface InterviewerTurnInput {
+  jobTitle: string;
+  question: { text: string; category: QuestionCategory };
+  transcript: string;
+  /** False once the follow-up limit is reached: the interviewer then only acknowledges. */
+  mayAskFollowUp: boolean;
+}
+
+/** The AI interviewer's turn between questions (PRD §8.1 follow-ups). */
+export interface InterviewerTurn {
+  /** One or two short, neutral sentences spoken to the candidate. */
+  reply: string;
+  /** One short follow-up question on the same topic, or null. */
+  followUp: string | null;
+}
+
 export type LlmErrorCode = 'PROVIDER_TIMEOUT' | 'PROVIDER_RATE_LIMITED' | 'PROVIDER_AUTH' | 'PROVIDER_INVALID_RESPONSE' | 'PROVIDER_UNAVAILABLE';
 
 export class LlmError extends Error {
@@ -57,8 +73,11 @@ export function providerFailure(err: LlmError): AppError {
   return err.code === 'PROVIDER_TIMEOUT' ? new AppError(504, 'PROVIDER_TIMEOUT', err.message) : new AppError(503, 'PROVIDER_UNAVAILABLE', err.message);
 }
 
-/** AI provider boundary (PRD §8.2-8.3): Grok today, swappable; tests use a fake. */
+/** AI provider boundary (PRD §8.2-8.3): any OpenAI-compatible chat API; tests use a fake. */
 export interface LlmProvider {
   generateQuestions(input: QuestionGenerationInput): Promise<GeneratedQuestion[]>;
   evaluateAnswer(input: AnswerEvaluationInput): Promise<AnswerEvaluation>;
+  respondToAnswer(input: InterviewerTurnInput): Promise<InterviewerTurn>;
+  /** The candidate asked the interviewer something; clarify without giving the answer. */
+  answerCandidateQuestion(input: { jobTitle: string; question: { text: string; category: QuestionCategory }; message: string }): Promise<{ reply: string }>;
 }

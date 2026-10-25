@@ -132,6 +132,19 @@ enum MediaConnectionStatus {
   DISCONNECTED
 }
 
+enum ConversationRole {
+  INTERVIEWER
+  CANDIDATE
+}
+
+enum ConversationTurnKind {
+  GREETING
+  REPLY
+  CLARIFICATION_REQUEST
+  CLARIFICATION
+  CLOSING
+}
+
 enum RecordingStatus {
   NOT_ENABLED
   PENDING
@@ -244,6 +257,7 @@ model Interview {
   mediaSession      MediaSession?
   consents          ConsentRecord[]
   recordings        Recording[]
+  conversationTurns ConversationTurn[]
 
   @@index([recruiterId, createdAt])
   @@index([status])
@@ -275,9 +289,14 @@ model Question {
   /// { evaluationCriteria: string[], expectedAnswerPoints: string[] }
   rubric       Json
   source       QuestionSource
+  /// FOLLOW_UP only: the original question it digs into (follow-up limits are counted per original).
+  parentQuestionId String?        @db.Uuid
   createdAt    DateTime         @default(now())
 
   interview  Interview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  parent     Question?   @relation("FollowUps", fields: [parentQuestionId], references: [id], onDelete: Cascade)
+  followUps  Question[]  @relation("FollowUps")
+  conversationTurns ConversationTurn[]
   answer     Answer?
   evaluation Evaluation?
 
@@ -419,6 +438,24 @@ model Recording {
 
   interview     Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   consentRecord ConsentRecord? @relation(fields: [consentRecordId], references: [id])
+
+  @@index([interviewId, createdAt])
+}
+
+/// What the AI interviewer and the candidate said to each other. Kept so a recruiter can review the
+/// conversation, e.g. to check the interviewer never gave hints.
+model ConversationTurn {
+  id          String               @id @default(uuid()) @db.Uuid
+  interviewId String               @db.Uuid
+  /// The question the line is about. GREETING/REPLY: the question it leads into (null after the last one).
+  questionId  String?              @db.Uuid
+  role        ConversationRole
+  kind        ConversationTurnKind
+  text        String
+  createdAt   DateTime             @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question  Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
 
   @@index([interviewId, createdAt])
 }

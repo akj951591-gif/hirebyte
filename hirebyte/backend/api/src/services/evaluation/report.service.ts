@@ -3,7 +3,7 @@ import type { AppDeps } from '../../context.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { Errors } from '../../lib/errors.js';
 import type { AuthUser } from '../auth/auth.service.js';
-import { overallScore, toProctoringEvent, toQuestion, toSummary, summaryInclude } from '../interviews/dto.js';
+import { overallScore, toConversationTurn, toProctoringEvent, toQuestion, toSummary, summaryInclude } from '../interviews/dto.js';
 import { ownershipScope } from '../interviews/interview.service.js';
 
 type EvaluationRow = Prisma.EvaluationGetPayload<{ include: { reviewer: { select: { name: true } } } }>;
@@ -38,6 +38,7 @@ export function createReportService({ db }: AppDeps) {
           ...summaryInclude,
           questions: { orderBy: { sequence: 'asc' }, include: { answer: true, evaluation: { include: { reviewer: { select: { name: true } } } } } },
           proctoringEvents: { orderBy: { occurredAt: 'asc' } },
+          conversationTurns: { orderBy: { createdAt: 'asc' } },
         },
       });
       if (!interview) throw Errors.notFound('Interview');
@@ -76,6 +77,7 @@ export function createReportService({ db }: AppDeps) {
           evaluation: q.evaluation ? toEvaluation(q.evaluation) : null,
         })),
         proctoringEvents: interview.proctoringEvents.map(toProctoringEvent),
+        conversation: interview.conversationTurns.map(toConversationTurn),
         generatedAt: new Date().toISOString(),
       };
     },

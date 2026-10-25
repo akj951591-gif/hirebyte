@@ -47,6 +47,16 @@ export function createMediaService(deps: AppDeps) {
     return { url: provider.url, token, room, identity, expiresAt: new Date(now().getTime() + env.MEDIA_TOKEN_TTL_SECONDS * 1000).toISOString() };
   }
 
+  /** The phone currently paired with this interview (by its device token), while video is allowed. */
+  async function verifyPhone(interviewId: string, deviceToken: string) {
+    const session = await db.mediaSession.findUnique({ where: { phoneDeviceTokenHash: crypto.hash(deviceToken) }, include: { interview: { select: { status: true, config: true } } } });
+    if (!session || session.interviewId !== interviewId) {
+      throw new AppError(401, 'UNAUTHENTICATED', 'This phone is no longer paired. Scan the QR code on your laptop again.');
+    }
+    assertPhoneAllowed(session.interview);
+    return session;
+  }
+
   function assertPhoneAllowed(interview: { status: InterviewStatus; config: unknown }) {
     if (!isLive(interview.status)) throw Errors.conflict('The interview is not open for video.');
     if (parseConfig(interview.config).secondaryCamera === 'OFF') throw Errors.forbidden('A phone camera is not used for this interview.');
@@ -106,13 +116,11 @@ export function createMediaService(deps: AppDeps) {
       }
 
       if (!creds.deviceToken) throw Errors.validation('Scan the QR code on your laptop to connect this phone.');
-      const session = await db.mediaSession.findUnique({ where: { phoneDeviceTokenHash: crypto.hash(creds.deviceToken) }, include: { interview: { select: { status: true, config: true } } } });
-      if (!session || session.interviewId !== interviewId) {
-        throw new AppError(401, 'UNAUTHENTICATED', 'This phone is no longer paired. Scan the QR code on your laptop again.');
-      }
-      assertPhoneAllowed(session.interview);
+      await verifyPhone(interviewId, creds.deviceToken);
       return issue(interviewId, IDENTITY.secondary(interviewId), phoneGrant);
     },
+
+    verifyPhone,
 
     /** Pairing info for the candidate view; returns null when no phone camera is used or LiveKit is missing. */
     async pairingFor(interviewId: string, policy: Api.SecondaryCameraPolicy): Promise<Api.PhonePairing | null> {

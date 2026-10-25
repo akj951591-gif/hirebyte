@@ -31,3 +31,14 @@ export const proctoringEventSchema = z.object({
   sourceCamera: z.enum(['PRIMARY', 'SECONDARY']).default('PRIMARY'),
   description: z.string().trim().max(500).optional(),
 });
+
+/** POST /candidate/sessions/:sessionId/ask */
+export const askInterviewerSchema = z.object({
+  questionId: z.uuid(),
+  message: z.string().trim().min(2, 'Type your question for the interviewer.').max(500, 'Please keep your question shorter.'),
+});
+
+/** POST /interviews/:id/phone-events: the paired phone authenticates with its device token. */
+export const phoneEventSchema = proctoringEventSchema.extend({
+  deviceToken: z.string().min(20).max(200),
+});

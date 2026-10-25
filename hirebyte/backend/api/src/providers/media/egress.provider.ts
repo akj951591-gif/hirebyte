@@ -35,7 +35,8 @@ function snapshot(info: {
 }
 
 export function createEgressProvider(env: Env): EgressProvider | null {
-  if (!env.livekitConfigured || !env.r2Configured) return null;
+  if (!env.livekitConfigured || !env.storageConfigured) return null;
+  const storage = env.storage;
   const client = new EgressClient(livekitHttpUrl(env.LIVEKIT_URL!), env.LIVEKIT_API_KEY!, env.LIVEKIT_API_SECRET!);
 
   return {
@@ -45,13 +46,13 @@ export function createEgressProvider(env: Env): EgressProvider | null {
         filepath: objectKey,
         output: {
           case: 's3',
-          // R2 is S3-compatible. Use an R2 token scoped to this bucket: LiveKit uses it to upload.
+          // Supabase Storage / R2 / S3 all speak the S3 protocol; LiveKit uploads with these keys.
           value: new S3Upload({
-            accessKey: env.R2_ACCESS_KEY_ID!,
-            secret: env.R2_SECRET_ACCESS_KEY!,
-            region: env.R2_REGION,
-            endpoint: env.R2_ENDPOINT!,
-            bucket: env.R2_BUCKET_NAME!,
+            accessKey: storage.accessKeyId!,
+            secret: storage.secretAccessKey!,
+            region: storage.region!,
+            endpoint: storage.endpoint!,
+            bucket: storage.bucket!,
             forcePathStyle: true,
           }),
         },

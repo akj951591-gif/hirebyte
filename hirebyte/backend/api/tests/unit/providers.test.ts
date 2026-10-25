@@ -3,7 +3,7 @@ import { AccessToken, TokenVerifier } from 'livekit-server-sdk';
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from '../../src/config/env.js';
 import { createLiveKitProvider, createLiveKitWebhookVerifier, livekitHttpUrl } from '../../src/providers/media/livekit.provider.js';
-import { createR2Storage, recordingObjectKey } from '../../src/providers/object-storage/r2.provider.js';
+import { createObjectStorage, recordingObjectKey } from '../../src/providers/object-storage/s3Storage.provider.js';
 
 // Real SDKs with fake credentials: tokens, signatures and presigned URLs are computed offline.
 const KEY = 'APIfakekey';
@@ -87,12 +87,34 @@ describe('R2 storage (PRD §9.3)', () => {
   });
 
   it('issues short-lived signed URLs for the private bucket', async () => {
-    const storage = createR2Storage(env)!;
+    const storage = createObjectStorage(env)!;
     const url = new URL(await storage.signedGetUrl('recordings/a/b/composite.mp4', 300));
     expect(url.host).toBe('acct123.r2.cloudflarestorage.com');
     expect(url.pathname).toBe('/hirebyte-recordings/recordings/a/b/composite.mp4');
     expect(url.searchParams.get('X-Amz-Expires')).toBe('300');
     expect(url.searchParams.get('X-Amz-Signature')).toBeTruthy();
     expect(url.toString()).not.toContain('r2-secret');
+  });
+});
+
+describe('Supabase Storage (S3 protocol)', () => {
+  it('signs private-bucket URLs against the Supabase S3 endpoint', async () => {
+    const supabase = loadEnv({
+      DATABASE_URL: 'postgresql://x',
+      SESSION_SECRET: 's'.repeat(40),
+      STORAGE_PROVIDER: 'supabase',
+      SUPABASE_PROJECT_REF: 'projref',
+      STORAGE_REGION: 'ap-south-1',
+      STORAGE_ACCESS_KEY_ID: 'sb-access',
+      STORAGE_SECRET_ACCESS_KEY: 'sb-secret',
+      STORAGE_BUCKET: 'recordings',
+      STORAGE_SIGNED_URL_TTL_SECONDS: '120',
+    });
+    const url = new URL(await createObjectStorage(supabase)!.signedGetUrl('recordings/i/r/composite.mp4', supabase.storage.signedUrlTtlSeconds));
+    expect(url.host).toBe('projref.storage.supabase.co');
+    expect(url.pathname).toBe('/storage/v1/s3/recordings/recordings/i/r/composite.mp4');
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('120');
+    expect(url.searchParams.get('X-Amz-Credential')).toMatch(/^sb-access\/\d{8}\/ap-south-1\/s3\/aws4_request$/);
+    expect(url.toString()).not.toContain('sb-secret');
   });
 });

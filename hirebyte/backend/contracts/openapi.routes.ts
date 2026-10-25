@@ -7,7 +7,7 @@
  */
 import type { ApiErrorCode } from './api-types.js';
 
-export type RouteAuth = 'public' | 'recruiter' | 'candidate' | 'mediaToken' | 'webhook';
+export type RouteAuth = 'public' | 'recruiter' | 'candidate' | 'mediaToken' | 'phoneDevice' | 'webhook';
 
 export interface RouteDoc {
   method: 'get' | 'post' | 'patch' | 'delete';
@@ -49,6 +49,9 @@ export const routes: RouteDoc[] = [
   { method: 'post', path: '/candidate/sessions/:sessionId/skip', tag: 'Candidate', auth: 'candidate', summary: 'Skips the current question when the interview allows it.', request: 'SkipQuestionRequest', response: 'CurrentQuestionResponse', errors: [...CANDIDATE, 'SKIP_NOT_ALLOWED', 'DUPLICATE_SUBMISSION', 'CONFLICT'] },
   { method: 'post', path: '/candidate/sessions/:sessionId/complete', tag: 'Candidate', auth: 'candidate', summary: 'Submits the interview; open questions become UNANSWERED. Idempotent.', response: 'CompleteSessionResponse', errors: [...CANDIDATE, 'CONFLICT'] },
 
+  { method: 'get', path: '/candidate/sessions/:sessionId/conversation', tag: 'Candidate', auth: 'candidate', summary: 'Everything the AI interviewer and the candidate have said so far.', response: 'ConversationResponse', errors: CANDIDATE },
+  { method: 'post', path: '/candidate/sessions/:sessionId/ask', tag: 'Candidate', auth: 'candidate', summary: 'Ask the interviewer about the current question (max 3 per question); it clarifies but never gives the answer.', request: 'AskInterviewerRequest', response: 'AskInterviewerResponse', errors: [...CANDIDATE, 'VALIDATION_ERROR', 'CONFLICT', 'PROVIDER_UNAVAILABLE', 'PROVIDER_TIMEOUT'] },
+
   { method: 'post', path: '/interviews', tag: 'Interviews', auth: 'recruiter', summary: 'Creates a DRAFT interview (question count defaults to 10).', request: 'CreateInterviewRequest', response: 'InterviewDetail', status: 201, errors: ['UNAUTHENTICATED', 'VALIDATION_ERROR'] },
   { method: 'get', path: '/interviews', tag: 'Interviews', auth: 'recruiter', summary: 'Lists and searches the recruiter’s interviews with dashboard stats.', query: 'ListInterviewsQuery', response: 'ListInterviewsResponse', errors: ['UNAUTHENTICATED', 'VALIDATION_ERROR'] },
   { method: 'get', path: '/interviews/:id', tag: 'Interviews', auth: 'recruiter', summary: 'Interview detail, including the invitation and live state.', response: 'InterviewDetail', errors: OWNED },
@@ -75,5 +78,6 @@ export const routes: RouteDoc[] = [
   { method: 'delete', path: '/recordings/:recordingId', tag: 'Recordings', auth: 'recruiter', summary: 'Deletes the R2 object, then marks the recording DELETED.', response: 'Recording', errors: [...OWNED, 'CONFLICT', 'RECORDING_UNAVAILABLE', 'RECORDING_DELETE_FAILED'] },
 
   { method: 'post', path: '/interviews/:id/events', tag: 'Proctoring', auth: 'candidate', summary: 'Logs an observation for human review during the interview (never a verdict).', request: 'CreateProctoringEventRequest', response: 'ProctoringEvent', status: 201, errors: [...CANDIDATE, 'VALIDATION_ERROR', 'CONFLICT'] },
+  { method: 'post', path: '/interviews/:id/phone-events', tag: 'Proctoring', auth: 'phoneDevice', summary: 'Logs an observation from the paired phone camera; authorised by the deviceToken in the body.', request: 'PhoneProctoringEventRequest', response: 'ProctoringEvent', status: 201, errors: ['UNAUTHENTICATED', 'FORBIDDEN', 'VALIDATION_ERROR', 'CONFLICT'] },
   { method: 'patch', path: '/proctoring-events/:id/review', tag: 'Proctoring', auth: 'recruiter', summary: 'Sets an observation’s review status and note.', request: 'ReviewProctoringEventRequest', response: 'ProctoringEvent', errors: [...OWNED, 'VALIDATION_ERROR'] },
 ];
