@@ -36,6 +36,7 @@ export const routes: RouteDoc[] = [
   { method: 'get', path: '/health', tag: 'System', auth: 'public', summary: 'Database and provider configuration state (never secrets).', response: 'HealthResponse', errors: [] },
 
   { method: 'post', path: '/auth/recruiter/login', tag: 'Auth', auth: 'public', summary: 'Recruiter email + password sign-in; sets the hb_session cookie. Rate-limited.', request: 'RecruiterLoginRequest', response: 'RecruiterLoginResponse', errors: ['VALIDATION_ERROR', 'INVALID_CREDENTIALS', 'ACCOUNT_LOCKED', 'RATE_LIMITED'] },
+  { method: 'post', path: '/auth/recruiter/register', tag: 'Auth', auth: 'public', summary: 'Self-service recruiter sign-up; creates the account and signs it in (sets the hb_session cookie). Rate-limited; can be switched off with RECRUITER_SIGNUP_ENABLED.', request: 'RecruiterRegisterRequest', response: 'RecruiterRegisterResponse', status: 201, errors: ['VALIDATION_ERROR', 'SIGNUP_DISABLED', 'EMAIL_TAKEN', 'RATE_LIMITED'] },
   { method: 'post', path: '/auth/recruiter/logout', tag: 'Auth', auth: 'public', summary: 'Revokes the recruiter session (if any) and clears the cookie.', response: null, status: 204, errors: [] },
   { method: 'get', path: '/auth/me', tag: 'Auth', auth: 'recruiter', summary: 'Safe identity and role of the signed-in recruiter.', response: 'MeResponse', errors: AUTH_ERRORS },
 

@@ -14,4 +14,5 @@ function limiter(env: Env, limit: number, message: string) {
 }
 
 export const loginRateLimit = (env: Env) => limiter(env, 20, 'Too many sign-in attempts. Please wait a few minutes and try again.');
-export const candidateAccessRateLimit = (env: Env) => limiter(env, 30, 'Too many attempts. Please wait a few minutes and try again.');
+export const registerRateLimit = (env: Env) => limiter(env, 10, 'Too many accounts were created from this network. Please wait a while and try again.');
+export const candidateAccessRateLimit =(env: Env) => limiter(env, 30, 'Too many attempts. Please wait a few minutes and try again.');

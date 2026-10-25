@@ -35,9 +35,17 @@ export class EpisodeTracker {
   private lastActive = 0;
 
   constructor(
-    private readonly type: ObservationType,
+    readonly type: ObservationType,
     private readonly rule: ObservationRule,
   ) {}
+
+  /**
+   * True while the condition is happening and has held long enough to count, so the candidate can be
+   * told right away instead of after the episode ends.
+   */
+  sustained(now: number): boolean {
+    return this.start !== null && now - this.lastActive <= this.rule.gapToleranceMs && this.lastActive - this.start >= this.rule.minDurationMs;
+  }
 
   /** Feed the condition at time `now` (ms). Returns a finished episode, if any. */
   update(active: boolean, now: number): Episode | null {
@@ -119,6 +127,15 @@ export class LookingAwayDetector {
     return Math.abs(angleDelta(pose.yaw, this.baseline.yaw)) > this.maxYawDeg || Math.abs(angleDelta(pose.pitch, this.baseline.pitch)) > this.maxPitchDeg;
   }
 }
+
+/** What the candidate sees while an observation is happening: a plain request, never an accusation. */
+export const CANDIDATE_ALERTS: Record<ObservationType, string> = {
+  FACE_ABSENT: "We can't see your face. Please sit in front of the camera.",
+  MULTIPLE_FACES: 'More than one person is visible. Please make sure you are alone.',
+  LOOKING_AWAY: 'Please keep your eyes on the screen.',
+  TAB_HIDDEN: 'You left the interview window. Please stay on this page.',
+  AUDIO_ISSUE: 'We could not hear your microphone. Please check it.',
+};
 
 const seconds = (ms: number) => Math.round(ms / 100) / 10;
 

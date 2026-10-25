@@ -2,8 +2,9 @@ import type { SafeUser } from '@contracts';
 import type { AppDeps } from '../../context.js';
 import { AppError } from '../../lib/errors.js';
 import { recordAudit } from '../../repositories/auditEvent.repository.js';
+import { isUniqueViolation } from '../../repositories/prisma.js';
 import { findSessionByTokenHash, findUserByEmail } from '../../repositories/user.repository.js';
-import { burnPasswordCheck, verifyPassword } from './password.js';
+import { burnPasswordCheck, hashPassword, verifyPassword } from './password.js';
 
 export const RECRUITER_COOKIE = 'hb_session';
 const MAX_FAILED_LOGINS = 5;
@@ -50,6 +51,37 @@ export function createAuthService({ db, crypto, env, now }: AppDeps) {
       ]);
       await recordAudit(db, { actorId: user.id, actorRole: user.role, action: 'auth.login', resourceType: 'user', resourceId: user.id });
       return { user: { id: user.id, email: user.email, name: user.name, role: user.role }, token, expiresAt };
+    },
+
+    /**
+     * Self-service sign-up: creates a recruiter account and signs it in. Saying "email taken" cannot
+     * be avoided here, so the route is rate-limited; RECRUITER_SIGNUP_ENABLED=false turns it off.
+     */
+    async register(name: string, email: string, password: string): Promise<{ user: AuthUser; token: string; expiresAt: Date }> {
+      if (!env.RECRUITER_SIGNUP_ENABLED) {
+        throw new AppError(403, 'SIGNUP_DISABLED', 'Creating accounts is turned off. Ask your administrator for an account.');
+      }
+      const taken = () => new AppError(409, 'EMAIL_TAKEN', 'An account with this email already exists. Sign in instead.');
+      if (await findUserByEmail(db, email)) {
+        await recordAudit(db, { actorRole: 'ANONYMOUS', action: 'auth.register_failed', resourceType: 'user', metadata: { reason: 'email_taken' } });
+        throw taken();
+      }
+
+      const passwordHash = await hashPassword(password);
+      let created;
+      try {
+        created = await db.user.create({ data: { email, name, passwordHash, role: 'RECRUITER' } });
+      } catch (err) {
+        // Another request registered the same email between the check and the insert.
+        if (isUniqueViolation(err)) throw taken();
+        throw err;
+      }
+
+      const token = crypto.randomToken();
+      const expiresAt = new Date(now().getTime() + env.RECRUITER_SESSION_TTL_HOURS * 3_600_000);
+      await db.userSession.create({ data: { userId: created.id, tokenHash: crypto.hash(token), expiresAt } });
+      await recordAudit(db, { actorId: created.id, actorRole: created.role, action: 'auth.register', resourceType: 'user', resourceId: created.id });
+      return { user: { id: created.id, email: created.email, name: created.name, role: created.role }, token, expiresAt };
     },
 
     /** Resolves a session cookie to a user, or null if missing/expired/revoked. */

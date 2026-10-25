@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { AuthShell, useRecruiterAuth } from '@/features/auth';
 import { toApiError } from '@/api/client/useAsync';
@@ -162,6 +162,13 @@ export function RecruiterLoginPage() {
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-ink-muted">
+        New to {appConfig.productName}?{' '}
+        <Link to="/recruiter/register" className="font-medium text-brand hover:underline">
+          Create an account
+        </Link>
+      </p>
 
       {featureFlags.useFixtures && (
         <p className="mt-6 rounded border border-dashed border-warning/50 bg-warning-soft/40 p-3 text-xs text-ink-muted">

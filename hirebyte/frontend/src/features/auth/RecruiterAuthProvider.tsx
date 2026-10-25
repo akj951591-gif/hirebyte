@@ -11,6 +11,8 @@ export type RecruiterAuthState =
 interface RecruiterAuthContextValue {
   state: RecruiterAuthState;
   login: (email: string, password: string) => Promise<SafeUser>;
+  /** Creates the account and signs it in. */
+  register: (name: string, email: string, password: string) => Promise<SafeUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -46,6 +48,12 @@ export function RecruiterAuthProvider({ children }: { children: ReactNode }) {
     return user;
   }, []);
 
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const { user } = await api.auth.recruiterRegister({ name, email, password });
+    setState({ status: 'authenticated', user });
+    return user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.auth.recruiterLogout();
@@ -54,7 +62,7 @@ export function RecruiterAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ state, login, logout, refresh }), [state, login, logout, refresh]);
+  const value = useMemo(() => ({ state, login, register, logout, refresh }), [state, login, register, logout, refresh]);
   return <RecruiterAuthContext.Provider value={value}>{children}</RecruiterAuthContext.Provider>;
 }
 

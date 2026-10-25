@@ -72,12 +72,16 @@ export function createMediaService(deps: AppDeps) {
       return res;
     },
 
-    /** Candidate laptop: publish camera + microphone, no subscriptions. */
+    /**
+     * Candidate laptop: publish camera + microphone, and subscribe so the candidate can see their own
+     * phone camera. Nothing else in the room can be seen: the phone publishes camera video only and
+     * the recruiter's view is hidden and publishes nothing.
+     */
     async tokenForCandidate(candidate: CandidateContext, interviewId: string) {
       if (candidate.interviewId !== interviewId) throw Errors.forbidden();
       const interview = await db.interview.findUniqueOrThrow({ where: { id: interviewId }, select: { status: true } });
       if (!isLive(interview.status)) throw Errors.conflict('The interview is not open for video.');
-      return issue(interviewId, IDENTITY.primary(interviewId), { canPublish: true, canSubscribe: false, sources: ['camera', 'microphone'] });
+      return issue(interviewId, IDENTITY.primary(interviewId), { canPublish: true, canSubscribe: true, sources: ['camera', 'microphone'] });
     },
 
     /**

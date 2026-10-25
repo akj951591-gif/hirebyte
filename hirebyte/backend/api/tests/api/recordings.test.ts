@@ -37,12 +37,14 @@ describe('media tokens and phone pairing (PRD §9.1)', () => {
     expect((await request(app).post(`/api/interviews/${id}/media-token`).send({ device: 'secondary', pairingToken: 'x'.repeat(30) })).status).toBe(503);
   });
 
-  it('issues role-scoped tokens: laptop publishes, recruiter watches hidden, others are refused', async () => {
+  it('issues role-scoped tokens: laptop publishes and sees the phone, recruiter watches hidden, others are refused', async () => {
     const { app, id, candidate, recruiter, media } = await setup({ media: true });
     const laptop = await candidate.agent.post(`/api/interviews/${id}/media-token`).send({ device: 'primary' });
     expect(laptop.status).toBe(200);
     expect(laptop.body).toMatchObject({ url: 'wss://fake.livekit.test', room: `hb-${id}`, identity: `candidate-primary:${id}` });
-    expect(media.tokens.at(-1)).toMatchObject({ canPublish: true, canSubscribe: false, sources: ['camera', 'microphone'], ttlSeconds: 600 });
+    // The laptop may subscribe so the candidate sees their own phone camera; it is not hidden.
+    expect(media.tokens.at(-1)).toMatchObject({ canPublish: true, canSubscribe: true, sources: ['camera', 'microphone'], ttlSeconds: 600 });
+    expect(media.tokens.at(-1)).not.toMatchObject({ hidden: true });
 
     const viewer = await recruiter.post(`/api/interviews/${id}/media-token`).send({ device: 'viewer' });
     expect(viewer.status).toBe(200);

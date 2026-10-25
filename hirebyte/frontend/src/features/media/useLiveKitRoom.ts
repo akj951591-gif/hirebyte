@@ -68,9 +68,24 @@ function manageRoom(room: Room, getToken: GetToken, setState: (s: RoomState) => 
   };
 }
 
-/** Publishes the local camera (and microphone, if present) of the candidate's laptop or phone. */
-export function usePublishToRoom({ getToken, stream, enabled }: { getToken: GetToken; stream: MediaStream | null; enabled: boolean }): RoomState {
+/**
+ * Publishes the local camera (and microphone, if present) of the candidate's laptop or phone.
+ * With `watchPhone` (the laptop), the same connection also receives the candidate's own phone camera,
+ * returned as `phone` (null until the phone is connected).
+ */
+export function usePublishToRoom({
+  getToken,
+  stream,
+  enabled,
+  watchPhone = false,
+}: {
+  getToken: GetToken;
+  stream: MediaStream | null;
+  enabled: boolean;
+  watchPhone?: boolean;
+}): RoomState & { phone: MediaStream | null } {
   const [state, setState] = useState<RoomState>({ status: 'idle', error: null });
+  const [phone, setPhone] = useState<MediaStream | null>(null);
   const tokenRef = useRef(getToken);
   useEffect(() => {
     tokenRef.current = getToken;
@@ -79,18 +94,40 @@ export function usePublishToRoom({ getToken, stream, enabled }: { getToken: GetT
   useEffect(() => {
     if (!enabled || !stream) {
       setState({ status: 'idle', error: null });
+      setPhone(null);
       return;
     }
-    const room = new Room({ adaptiveStream: true, dynacast: true });
-    return manageRoom(room, () => tokenRef.current(), setState, async () => {
+    // Adaptive streaming can pause a track that is not attached through the SDK, and the phone video
+    // is shown from its raw MediaStreamTrack, so it is off when watching the phone.
+    const room = new Room({ adaptiveStream: !watchPhone, dynacast: true });
+    if (watchPhone) {
+      const phoneTracks = new Map<string, MediaStreamTrack>();
+      const isPhone = (p: RemoteParticipant) => p.identity.startsWith('candidate-secondary:');
+      const showPhone = () => setPhone(phoneTracks.size ? new MediaStream([...phoneTracks.values()]) : null);
+      room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, participant) => {
+        if (!isPhone(participant) || track.kind !== Track.Kind.Video) return;
+        phoneTracks.set(track.sid ?? track.mediaStreamTrack.id, track.mediaStreamTrack);
+        showPhone();
+      });
+      room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, _pub, participant) => {
+        if (!isPhone(participant)) return;
+        phoneTracks.delete(track.sid ?? track.mediaStreamTrack.id);
+        showPhone();
+      });
+    }
+    const cleanup = manageRoom(room, () => tokenRef.current(), setState, async () => {
       for (const track of stream.getTracks()) {
         if (track.readyState !== 'live') continue;
         await room.localParticipant.publishTrack(track, { source: track.kind === 'video' ? Track.Source.Camera : Track.Source.Microphone });
       }
     });
-  }, [enabled, stream]);
+    return () => {
+      cleanup();
+      setPhone(null);
+    };
+  }, [enabled, stream, watchPhone]);
 
-  return state;
+  return { ...state, phone };
 }
 
 /** Recruiter live view (hidden, subscribe-only): the candidate's laptop (video + audio) and phone video. */

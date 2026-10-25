@@ -1,0 +1,8 @@
+**/node_modules
+**/.env
+**/.env.local
+**/*.log
+api/src/generated
+api/coverage
+services/document-service/.venv
+**/__pycache__

@@ -10,6 +10,7 @@ import { InterviewRoomPage } from '@/pages/candidate/InterviewRoomPage';
 import { CompletionPage } from '@/pages/candidate/CompletionPage';
 import { PhoneCameraPage } from '@/pages/candidate/PhoneCameraPage';
 import { RecruiterLoginPage } from '@/pages/recruiter/RecruiterLoginPage';
+import { RecruiterRegisterPage } from '@/pages/recruiter/RecruiterRegisterPage';
 import { OverviewPage } from '@/pages/recruiter/OverviewPage';
 import { HistoryPage } from '@/pages/recruiter/HistoryPage';
 import { CreateInterviewPage } from '@/pages/recruiter/CreateInterviewPage';
@@ -59,6 +60,7 @@ export const routes: RouteObject[] = [
         ),
         children: [
           { path: 'login', element: <RecruiterLoginPage /> },
+          { path: 'register', element: <RecruiterRegisterPage /> },
           {
             element: <RecruiterRouteGuard />,
             children: [

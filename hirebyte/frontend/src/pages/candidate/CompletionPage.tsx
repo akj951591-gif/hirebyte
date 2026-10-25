@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, LogOut } from 'lucide-react';
 import { api } from '@/api/client';
 import { useAsync } from '@/api/client/useAsync';
 import { useCandidateOutlet } from '@/app/CandidateRouteGuard';
 import { useCandidateSession } from '@/features/auth';
+import { Alert } from '@/components/Alert';
 import { Button } from '@/components/Button';
 import { Spinner } from '@/components/PageState';
 import { createBrowserTts } from '@/features/voice/ttsAdapter';
@@ -14,6 +15,7 @@ export function CompletionPage() {
   const { session } = useCandidateOutlet();
   const { signOut } = useCandidateSession();
   const navigate = useNavigate();
+  const endedByFullscreen = (useLocation().state as { endedBy?: string } | null)?.endedBy === 'fullscreen';
   const { data, loading, error } = useAsync((signal) => api.candidate.currentQuestion(session.sessionId, signal), [session.sessionId]);
   const conversation = useAsync((signal) => api.candidate.conversation(session.sessionId, signal), [session.sessionId]);
   const closings = conversation.data?.turns.filter((t) => t.kind === 'CLOSING') ?? [];
@@ -51,6 +53,12 @@ export function CompletionPage() {
             </p>
           )}
         </div>
+
+        {endedByFullscreen && (
+          <Alert tone="warning" title="The interview ended when you left full screen" className="w-full text-left">
+            The interview must stay in full screen. Your saved answers were submitted.
+          </Alert>
+        )}
 
         <div className="w-full rounded-lg bg-surface-muted p-4 text-sm" aria-live="polite">
           {loading ? (

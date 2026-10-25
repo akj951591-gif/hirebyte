@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import type { Env } from '../config/env.js';
 import { Errors } from '../lib/errors.js';
 import { clearRecruiterCookie, setRecruiterCookie } from '../middleware/requireRecruiter.js';
-import { recruiterLoginSchema } from '../schemas/auth.schema.js';
+import { recruiterLoginSchema, recruiterRegisterSchema } from '../schemas/auth.schema.js';
 import { RECRUITER_COOKIE } from '../services/auth/auth.service.js';
 import type { Services } from '../services/index.js';
 
@@ -12,6 +12,13 @@ export function authController(s: Services, env: Env) {
     const { user, token, expiresAt } = await s.auth.login(email, password);
     setRecruiterCookie(res, env, token, expiresAt);
     res.json({ user });
+  };
+
+  const register: RequestHandler = async (req, res) => {
+    const { name, email, password } = recruiterRegisterSchema.parse(req.body);
+    const { user, token, expiresAt } = await s.auth.register(name, email, password);
+    setRecruiterCookie(res, env, token, expiresAt);
+    res.status(201).json({ user });
   };
 
   const logout: RequestHandler = async (req, res) => {
@@ -25,5 +32,5 @@ export function authController(s: Services, env: Env) {
     res.json({ user: req.user });
   };
 
-  return { login, logout, me };
+  return { login, register, logout, me };
 }

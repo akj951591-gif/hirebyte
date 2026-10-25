@@ -43,6 +43,8 @@ const schema = z
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     /** Shown to candidates as the hiring company. */
     COMPANY_NAME: z.string().default('HireByte'),
+    /** Proxies in front of the API (e.g. 2 for CloudFront → nginx), so rate limits see the real client IP. */
+    TRUST_PROXY_HOPS: optionalInt,
 
     RECRUITER_SESSION_TTL_HOURS: int(8),
     CANDIDATE_SESSION_TTL_MINUTES: int(180),
@@ -103,6 +105,9 @@ const schema = z
     /** Shared secret sent as X-Service-Token; set the same value in the document service. */
     DOCUMENT_SERVICE_TOKEN: optional,
     DOCUMENT_TIMEOUT_MS: int(30_000),
+
+    /** Lets anyone create a recruiter account from the sign-in page. Turn off for a closed deployment. */
+    RECRUITER_SIGNUP_ENABLED: bool.default(true),
 
     // Seed script only
     SEED_RECRUITER_EMAIL: optional,

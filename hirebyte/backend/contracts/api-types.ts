@@ -71,6 +71,8 @@ export type ApiErrorCode =
   | 'RATE_LIMITED'
   | 'INVALID_CREDENTIALS'
   | 'ACCOUNT_LOCKED'
+  | 'EMAIL_TAKEN'
+  | 'SIGNUP_DISABLED'
   | 'INVITATION_INVALID'
   | 'INVITATION_EXPIRED'
   | 'INTERVIEW_COMPLETED'
@@ -120,6 +122,18 @@ export interface RecruiterLoginRequest {
 
 /** Session is carried by an HttpOnly cookie; the body only echoes the safe identity. */
 export interface RecruiterLoginResponse {
+  user: SafeUser;
+}
+
+/** POST /auth/recruiter/register: self-service sign-up, which also signs the new recruiter in. */
+export interface RecruiterRegisterRequest {
+  name: string;
+  email: string;
+  /** At least 12 characters, and not an obvious one. */
+  password: string;
+}
+
+export interface RecruiterRegisterResponse {
   user: SafeUser;
 }
 
