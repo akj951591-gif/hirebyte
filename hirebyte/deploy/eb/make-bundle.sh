@@ -13,6 +13,13 @@ cd "$(dirname "$0")/../.."                      # hirebyte/
 repo="$(git rev-parse --show-toplevel)"
 [ -f "$src" ] || { echo "source env file not found: $src"; exit 1; }
 [ -f frontend/dist/index.html ] || { echo "build the frontend first: (cd frontend && npm run build)"; exit 1; }
+# Git Bash on Windows rewrites VITE_API_BASE_URL=/api into "C:/Program Files/Git/api" when it is set
+# on the command line, which silently breaks every API call. The app defaults to /api, so build
+# without setting that variable.
+if grep -rqE 'Program Files|apiBaseUrl:`[A-Za-z]:' frontend/dist/assets; then
+  echo "frontend/dist has a mangled API base URL. Rebuild without setting VITE_API_BASE_URL: (cd frontend && npm run build)"
+  exit 1
+fi
 
 stage="$out/stage"
 rm -rf "$stage" && mkdir -p "$stage/backend"
