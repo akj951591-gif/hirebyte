@@ -13,7 +13,7 @@ import { ErrorState, LoadingState } from '@/components/PageState';
 import { QuestionCard } from '@/components/QuestionCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { VideoPanel } from '@/components/VideoPanel';
-import { useCameraObservations, useTabObservations } from '@/features/proctoring';
+import { CandidateAlerts, FullscreenGate, useCameraObservations, useCandidateAlerts, useFullscreenGuard, useTabObservations } from '@/features/proctoring';
 import { ConversationPanel } from '@/features/conversation';
 import { cn } from '@/components/cn';
 import { formatClock, humanize, newIdempotencyKey } from '@/utils/format';
@@ -54,11 +54,15 @@ export function InterviewRoomPage() {
     (body: Parameters<typeof api.proctoring.log>[1]) => api.proctoring.log(session.interviewId, body),
     [session.interviewId],
   );
-  const cameraChecks = useCameraObservations({ stream: media.stream, enabled: observing, camera: 'PRIMARY', report: reportObservation });
-  useTabObservations({ enabled: observing, report: reportObservation });
+  // The same observations the recruiter reviews are also shown to the candidate while they happen.
+  const { alerts, onLiveChange } = useCandidateAlerts();
+  const cameraChecks = useCameraObservations({ stream: media.stream, enabled: observing, camera: 'PRIMARY', report: reportObservation, onLiveChange });
+  useTabObservations({ enabled: observing, report: reportObservation, onLiveChange });
   // Laptop camera + microphone into the interview room for the recruiter's live view and recording.
+  // The laptop also receives the candidate's own phone camera, so they can see what it shows.
+  const phoneCameraUsed = session.secondaryCamera !== 'OFF';
   const getLaptopToken = useCallback(() => api.media.token(session.interviewId, { device: 'primary' }), [session.interviewId]);
-  usePublishToRoom({ getToken: getLaptopToken, stream: media.stream, enabled: observing });
+  const room = usePublishToRoom({ getToken: getLaptopToken, stream: media.stream, enabled: observing, watchPhone: phoneCameraUsed });
   const tts = useMemo(() => createBrowserTts(), []);
   const stt = useMemo(() => createBrowserStt(), []);
 
@@ -223,6 +227,8 @@ export function InterviewRoomPage() {
     setActionPending(true);
     stt.stopCapture();
     tts.stop();
+    // Finishing on purpose: handing the screen back is not leaving full screen.
+    fullscreen.release();
     try {
       const result = await api.candidate.complete(session.sessionId);
       media.stop();
@@ -234,6 +240,42 @@ export function InterviewRoomPage() {
       setConfirm(null);
     }
   };
+
+  /** Leaving full screen ends the interview: saved answers are submitted and the candidate is told why. */
+  const endingForFullscreenRef = useRef(false);
+  const endForFullscreenExit = async () => {
+    if (endingForFullscreenRef.current) return;
+    endingForFullscreenRef.current = true;
+    stt.stopCapture();
+    tts.stop();
+    // A note on the recruiter's timeline, sent first because events are refused once the interview is over.
+    await reportObservation({
+      type: 'TAB_HIDDEN',
+      occurredAt: new Date().toISOString(),
+      durationSeconds: 0,
+      sourceCamera: 'PRIMARY',
+      description: 'The candidate left full screen, so the interview was ended.',
+    }).catch(() => undefined);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const result = await api.candidate.complete(session.sessionId);
+        media.stop();
+        setSession((s) => ({ ...s, status: result.status }));
+        navigate('/candidate/complete', { replace: true, state: { endedBy: 'fullscreen' } });
+        return;
+      } catch (err) {
+        // Already finished on the server (e.g. the time limit): follow it to the end screen.
+        if (toApiError(err).code === 'CONFLICT') {
+          navigate('/candidate/complete', { replace: true, state: { endedBy: 'fullscreen' } });
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      }
+    }
+    endingForFullscreenRef.current = false;
+    setSaveError('You left full screen, but we could not end the interview automatically. Check your connection, then choose End interview.');
+  };
+  const fullscreen = useFullscreenGuard({ enabled: observing, onExit: () => void endForFullscreenExit() });
 
   if (loading && !current) return <LoadingState label="Loading your next question…" />;
   if (loadError || !current) {
@@ -256,7 +298,9 @@ export function InterviewRoomPage() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      {fullscreen.required && <FullscreenGate onEnter={() => void fullscreen.enter()} />}
       <div className="space-y-4">
+        <CandidateAlerts alerts={alerts} />
         {question ? (
           <>
             {current.interviewerReply && (
@@ -451,6 +495,20 @@ export function InterviewRoomPage() {
           }
           placeholder={media.state === 'requesting' ? <Loader2 className="h-6 w-6 animate-spin" aria-hidden /> : <span>{media.errorMessage}</span>}
         />
+        {phoneCameraUsed && (
+          <VideoPanel
+            label="Your phone camera"
+            stream={room.phone}
+            status={
+              room.phone ? (
+                <StatusBadge tone="danger" live>
+                  Live
+                </StatusBadge>
+              ) : undefined
+            }
+            placeholder={<span>Phone camera not connected. You can add it by scanning the QR code on the device check step.</span>}
+          />
+        )}
         {observing && cameraChecks !== 'off' && (
           <p className="text-xs text-ink-muted" role="status">
             {cameraChecks === 'active'

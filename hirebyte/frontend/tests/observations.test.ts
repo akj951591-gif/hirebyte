@@ -23,6 +23,26 @@ describe('observation episodes (PRD §13: for human review)', () => {
     expect(episodes[0]!.durationMs).toBeGreaterThanOrEqual(4500);
   });
 
+  it('tells the candidate while a condition is happening, once it has held long enough', () => {
+    const tracker = new EpisodeTracker('FACE_ABSENT', OBSERVATION_RULES.FACE_ABSENT);
+    const live: boolean[] = [];
+    let t = 0;
+    const feed = (active: boolean, ms: number) => {
+      for (const end = t + ms; t < end; t += 250) {
+        tracker.update(active, t);
+        live.push(tracker.sustained(t));
+      }
+    };
+    feed(true, 2000); // under the 3 s minimum: nothing to say yet
+    expect(live.some(Boolean)).toBe(false);
+    feed(true, 2000);
+    expect(live[live.length - 1]).toBe(true);
+    feed(false, 500); // a short gap inside the tolerance keeps the alert up
+    expect(tracker.sustained(t - 250)).toBe(true);
+    feed(false, 2000);
+    expect(live[live.length - 1]).toBe(false);
+  });
+
   it('bridges a missed frame inside one episode instead of splitting it', () => {
     const tracker = new EpisodeTracker('MULTIPLE_FACES', OBSERVATION_RULES.MULTIPLE_FACES);
     const { episodes } = run(tracker, [[true, 1000], [false, 500], [true, 1000], [false, 2000]]);
