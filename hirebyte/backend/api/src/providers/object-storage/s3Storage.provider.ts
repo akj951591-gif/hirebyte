@@ -8,15 +8,20 @@ export function recordingObjectKey(interviewId: string, recordingId: string): st
   return `recordings/${interviewId}/${recordingId}/composite.mp4`;
 }
 
-export function createR2Storage(env: Env): ObjectStorage | null {
-  if (!env.r2Configured) return null;
+/**
+ * Private bucket on any S3-compatible service: Supabase Storage (S3 protocol), Cloudflare R2 or AWS
+ * S3, chosen by the STORAGE_* settings. Path-style addressing works for all three.
+ */
+export function createObjectStorage(env: Env): ObjectStorage | null {
+  if (!env.storageConfigured) return null;
+  const { endpoint, region, accessKeyId, secretAccessKey, bucket } = env.storage;
   const client = new S3Client({
-    region: env.R2_REGION,
-    endpoint: env.R2_ENDPOINT,
+    region,
+    endpoint,
     forcePathStyle: true,
-    credentials: { accessKeyId: env.R2_ACCESS_KEY_ID!, secretAccessKey: env.R2_SECRET_ACCESS_KEY! },
+    credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! },
   });
-  const Bucket = env.R2_BUCKET_NAME!;
+  const Bucket = bucket!;
 
   return {
     async head(key) {

@@ -5,7 +5,7 @@ import { Errors } from '../../lib/errors.js';
 import { logger, safeError } from '../../lib/logger.js';
 import type { EgressSnapshot } from '../../providers/media/egress.provider.js';
 import type { MediaWebhookEvent } from '../../providers/media/livekit.provider.js';
-import { recordingObjectKey } from '../../providers/object-storage/r2.provider.js';
+import { recordingObjectKey } from '../../providers/object-storage/s3Storage.provider.js';
 import { recordAudit } from '../../repositories/auditEvent.repository.js';
 import { findActiveRecording, transitionRecording } from '../../repositories/recording.repository.js';
 import type { AuthUser } from '../auth/auth.service.js';

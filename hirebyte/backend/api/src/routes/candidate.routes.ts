@@ -17,5 +17,7 @@ export function candidateRoutes({ services, env, requireCandidate }: RouteContex
   r.post(`${s}/answers`, requireCandidate, c.answer);
   r.post(`${s}/skip`, requireCandidate, c.skip);
   r.post(`${s}/complete`, requireCandidate, c.complete);
+  r.get(`${s}/conversation`, requireCandidate, c.conversation);
+  r.post(`${s}/ask`, requireCandidate, c.ask);
   return r;
 }

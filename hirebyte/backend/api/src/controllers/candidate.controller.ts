@@ -2,7 +2,7 @@ import type { Request, RequestHandler } from 'express';
 import type { Env } from '../config/env.js';
 import { Errors } from '../lib/errors.js';
 import { clearCandidateCookie, setCandidateCookie } from '../middleware/requireCandidateSession.js';
-import { consentSchema, skipQuestionSchema, submitAnswerSchema } from '../schemas/answer.schema.js';
+import { askInterviewerSchema, consentSchema, skipQuestionSchema, submitAnswerSchema } from '../schemas/answer.schema.js';
 import { candidateAccessSchema } from '../schemas/auth.schema.js';
 import { CANDIDATE_COOKIE } from '../services/auth/candidateSession.service.js';
 import type { Services } from '../services/index.js';
@@ -36,5 +36,7 @@ export function candidateController(s: Services, env: Env) {
     answer: (async (req, res) => res.json(await s.candidateFlow.submitAnswer(ctx(req), submitAnswerSchema.parse(req.body)))) as RequestHandler,
     skip: (async (req, res) => res.json(await s.candidateFlow.skip(ctx(req), skipQuestionSchema.parse(req.body)))) as RequestHandler,
     complete: (async (req, res) => res.json(await s.candidateFlow.complete(ctx(req)))) as RequestHandler,
+    conversation: (async (req, res) => res.json(await s.candidateFlow.conversation(ctx(req)))) as RequestHandler,
+    ask: (async (req, res) => res.json(await s.candidateFlow.ask(ctx(req), askInterviewerSchema.parse(req.body)))) as RequestHandler,
   };
 }

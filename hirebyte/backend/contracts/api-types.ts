@@ -374,6 +374,8 @@ export interface CandidateQuestion {
   sequence: number;
   text: string;
   category: QuestionCategory;
+  /** An AI follow-up to the previous answer (inserted during the interview). */
+  isFollowUp: boolean;
 }
 
 export interface CurrentQuestionResponse {
@@ -384,6 +386,11 @@ export interface CurrentQuestionResponse {
   startedAt: string | null;
   durationMinutes: number;
   allowSkip: boolean;
+  /**
+   * What the AI interviewer says after an answer, before the next question (a short neutral
+   * acknowledgement). null when there is nothing to say, or the AI is not configured.
+   */
+  interviewerReply: string | null;
 }
 
 export interface SubmitAnswerRequest {
@@ -404,6 +411,38 @@ export interface CompleteSessionResponse {
   status: InterviewStatus;
   submittedAt: string;
   progress: InterviewProgress;
+  /** The interviewer's closing words, to show and read aloud. */
+  closingMessage: string;
+}
+
+export type ConversationRole = 'INTERVIEWER' | 'CANDIDATE';
+export type ConversationTurnKind = 'GREETING' | 'REPLY' | 'CLARIFICATION_REQUEST' | 'CLARIFICATION' | 'CLOSING';
+
+/** One line of the interview conversation. Visible to the candidate and to the recruiter. */
+export interface ConversationTurn {
+  id: string;
+  role: ConversationRole;
+  kind: ConversationTurnKind;
+  text: string;
+  /** The question the line is about (GREETING/REPLY: the question it leads into). */
+  questionId: string | null;
+  createdAt: string;
+}
+
+/** GET /candidate/sessions/:sessionId/conversation */
+export interface ConversationResponse {
+  turns: ConversationTurn[];
+}
+
+/** POST /candidate/sessions/:sessionId/ask: the candidate asks the interviewer about the current question. */
+export interface AskInterviewerRequest {
+  questionId: string;
+  message: string;
+}
+
+export interface AskInterviewerResponse {
+  question: ConversationTurn;
+  reply: ConversationTurn;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -517,6 +556,8 @@ export interface InterviewReport {
   overall: OverallAssessment | null;
   items: ReportItem[];
   proctoringEvents: ProctoringEvent[];
+  /** Everything the AI interviewer and the candidate said to each other, in order. */
+  conversation: ConversationTurn[];
   generatedAt: string;
 }
 
@@ -557,6 +598,12 @@ export interface CreateProctoringEventRequest {
   durationSeconds?: number;
   sourceCamera?: CameraSource;
   description?: string;
+}
+
+/** POST /interviews/:id/phone-events: from the paired phone, recorded as the SECONDARY camera. */
+export interface PhoneProctoringEventRequest extends CreateProctoringEventRequest {
+  /** The deviceToken returned when the phone paired. */
+  deviceToken: string;
 }
 
 export type ProviderConfigState = 'configured' | 'not_configured';

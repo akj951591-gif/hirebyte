@@ -2,10 +2,10 @@ import type { Env } from './config/env.js';
 import type { AppDeps } from './context.js';
 import { createCrypto } from './lib/crypto.js';
 import { createDocumentServiceClient } from './providers/documents/documentService.provider.js';
-import { createGrokProvider } from './providers/llm/grok.provider.js';
+import { createLlmProvider } from './providers/llm/chatCompletions.provider.js';
 import { createEgressProvider } from './providers/media/egress.provider.js';
 import { createLiveKitProvider, createLiveKitWebhookVerifier } from './providers/media/livekit.provider.js';
-import { createR2Storage } from './providers/object-storage/r2.provider.js';
+import { createObjectStorage } from './providers/object-storage/s3Storage.provider.js';
 import { createEventHub } from './realtime/eventHub.js';
 import { createPrisma } from './repositories/prisma.js';
 
@@ -18,10 +18,10 @@ export function createDeps(env: Env): AppDeps {
     crypto: createCrypto(env.SESSION_SECRET),
     media: createLiveKitProvider(env),
     egress: createEgressProvider(env),
-    storage: createR2Storage(env),
+    storage: createObjectStorage(env),
     webhooks: createLiveKitWebhookVerifier(env),
     documents: createDocumentServiceClient(env),
-    llm: createGrokProvider(env),
+    llm: createLlmProvider(env),
     events: createEventHub(db),
     now: () => new Date(),
   };

@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, MonitorSmartphone, Video } from 'lucide-react';
 import { api, type MediaConnectionStatus } from '@/api/client';
 import { useAsync, usePolling } from '@/api/client/useAsync';
 import { PageHeader } from '@/app/RecruiterLayout';
 import { CancelInterviewButton, InterviewStatusBadge } from '@/features/interviews';
+import { useWatchRoom } from '@/features/media';
 import { ProctoringTimeline } from '@/features/proctoring';
 import { RecordingStatusBadge } from '@/features/recordings';
 import { Alert } from '@/components/Alert';
@@ -26,15 +28,16 @@ const connectionMeta: Record<MediaConnectionStatus, { label: string; tone: Tone;
 const LIVE = ['ONBOARDING', 'IN_PROGRESS', 'PROCESSING_ANSWER'];
 
 /**
- * Live monitor (PRD §7.2). Status, progress and observations come from the API and are polled until
- * Socket.IO events (backend/contracts/events.md) are published. Video tiles need the LiveKit
- * integration from the media workstream; until then they show connection status only.
+ * Live monitor (PRD §7.2). Status, progress and observations are polled from the API. Video comes
+ * from LiveKit: the recruiter joins hidden and subscribe-only, so the candidate is not affected.
  */
 export function MonitorPage() {
   const { id = '' } = useParams();
   const { data: interview, error, loading, reload } = useAsync((signal) => api.interviews.get(id, signal), [id]);
   const isLive = interview ? LIVE.includes(interview.status) : false;
   usePolling(() => void reload({ silent: true }), appConfig.monitorPollMs, isLive);
+  const getViewerToken = useCallback(() => api.media.token(id, { device: 'viewer' }), [id]);
+  const watch = useWatchRoom({ getToken: getViewerToken, enabled: isLive });
 
   if (loading && !interview) return <LoadingState label="Connecting to the interview…" />;
   if (error || !interview) {
@@ -63,7 +66,17 @@ export function MonitorPage() {
   const tilePlaceholder = (label: string) => (
     <>
       <Video className="h-6 w-6" aria-hidden />
-      <span className="max-w-xs">{label} video appears here once the LiveKit media integration is connected.</span>
+      <span className="max-w-xs">
+        {!isLive
+          ? 'Video is shown while the interview is running.'
+          : watch.status === 'unavailable'
+            ? 'Live video is not set up on this server (LiveKit).'
+            : watch.status === 'error'
+              ? (watch.error ?? 'Live video could not connect.')
+              : watch.status === 'connected'
+                ? `Waiting for the candidate’s ${label.toLowerCase()}…`
+                : 'Connecting to live video…'}
+      </span>
     </>
   );
 
@@ -112,7 +125,7 @@ export function MonitorPage() {
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <VideoPanel label="Laptop camera" status={tileStatus(live?.primaryCamera)} placeholder={tilePlaceholder('Laptop camera')} />
+            <VideoPanel label="Laptop camera" stream={watch.laptop} muted={false} status={tileStatus(live?.primaryCamera)} placeholder={tilePlaceholder('Laptop camera')} />
             {interview.config.secondaryCamera === 'OFF' ? (
               <VideoPanel
                 label="Phone camera"
@@ -124,7 +137,7 @@ export function MonitorPage() {
                 }
               />
             ) : (
-              <VideoPanel label="Phone camera" status={tileStatus(live?.secondaryCamera)} placeholder={tilePlaceholder('Phone camera')} />
+              <VideoPanel label="Phone camera" stream={watch.phone} status={tileStatus(live?.secondaryCamera)} placeholder={tilePlaceholder('Phone camera')} />
             )}
           </div>
 

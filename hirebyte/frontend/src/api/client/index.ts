@@ -25,6 +25,13 @@ import type {
   RecruiterLoginResponse,
   ReviewEvaluationRequest,
   ReviewProctoringEventRequest,
+  CreateProctoringEventRequest,
+  AskInterviewerRequest,
+  AskInterviewerResponse,
+  ConversationResponse,
+  MediaTokenRequest,
+  MediaTokenResponse,
+  PhoneProctoringEventRequest,
   SkipQuestionRequest,
   SubmitAnswerRequest,
   UpdateInterviewRequest,
@@ -84,6 +91,12 @@ export const api = {
       request<CurrentQuestionResponse>({ method: 'POST', path: `/candidate/sessions/${enc(sessionId)}/skip`, body }),
     complete: (sessionId: string) =>
       request<CompleteSessionResponse>({ method: 'POST', path: `/candidate/sessions/${enc(sessionId)}/complete` }),
+    /** Everything the AI interviewer and the candidate have said so far. */
+    conversation: (sessionId: string, signal?: AbortSignal) =>
+      request<ConversationResponse>({ method: 'GET', path: `/candidate/sessions/${enc(sessionId)}/conversation`, signal }),
+    /** Ask the interviewer about the current question; it clarifies but never gives the answer. */
+    ask: (sessionId: string, body: AskInterviewerRequest) =>
+      request<AskInterviewerResponse>({ method: 'POST', path: `/candidate/sessions/${enc(sessionId)}/ask`, body }),
   },
 
   interviews: {
@@ -133,7 +146,19 @@ export const api = {
       request<Evaluation>({ method: 'PATCH', path: `/evaluations/${enc(evaluationId)}/review`, body }),
   },
 
+  media: {
+    /** Short-lived LiveKit token; the cookie (recruiter/candidate) or the phone's pairing/device token decides the role. */
+    token: (interviewId: string, body: MediaTokenRequest) =>
+      request<MediaTokenResponse>({ method: 'POST', path: `/interviews/${enc(interviewId)}/media-token`, body }),
+  },
+
   proctoring: {
+    /** Paired phone: observation from the phone camera, authorised by its device token. */
+    logFromPhone: (interviewId: string, body: PhoneProctoringEventRequest) =>
+      request<ProctoringEvent>({ method: 'POST', path: `/interviews/${enc(interviewId)}/phone-events`, body }),
+    /** Candidate laptop: an observation from the camera or tab checks (candidate session cookie). */
+    log: (interviewId: string, body: CreateProctoringEventRequest) =>
+      request<ProctoringEvent>({ method: 'POST', path: `/interviews/${enc(interviewId)}/events`, body }),
     review: (eventId: string, body: ReviewProctoringEventRequest) =>
       request<ProctoringEvent>({ method: 'PATCH', path: `/proctoring-events/${enc(eventId)}/review`, body }),
   },

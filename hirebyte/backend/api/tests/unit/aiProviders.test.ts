@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '../../src/config/env.js';
 import { createDocumentServiceClient, DocumentRejectedError, DocumentServiceUnavailableError } from '../../src/providers/documents/documentService.provider.js';
-import { createGrokProvider } from '../../src/providers/llm/grok.provider.js';
+import { createLlmProvider } from '../../src/providers/llm/chatCompletions.provider.js';
 import { LlmError } from '../../src/providers/llm/llm.types.js';
 import { verifiedEvidence } from '../../src/services/evaluation/evaluationRunner.service.js';
 import { pdfSafe } from '../../src/services/evaluation/pdf.service.js';
@@ -26,7 +26,7 @@ describe('configuration', () => {
   it('requires a model name with the xAI key and reports AI as not configured without both', () => {
     expect(() => loadEnv({ ...base, XAI_API_KEY: 'k' })).toThrow(/XAI_MODEL/);
     expect(loadEnv(base).llmConfigured).toBe(false);
-    expect(createGrokProvider(loadEnv(base))).toBeNull();
+    expect(createLlmProvider(loadEnv(base))).toBeNull();
     expect(createDocumentServiceClient(loadEnv(base))).toBeNull();
   });
 });
@@ -35,7 +35,7 @@ describe('Grok provider', () => {
   it('sends a strict JSON-schema request with the key server-side and untrusted text fenced off', async () => {
     const fetchMock = vi.fn(async () => chat(evaluation));
     vi.stubGlobal('fetch', fetchMock);
-    const result = await createGrokProvider(env)!.evaluateAnswer(evalInput);
+    const result = await createLlmProvider(env)!.evaluateAnswer(evalInput);
     expect(result.score).toBe(6);
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -50,12 +50,12 @@ describe('Grok provider', () => {
   it('retries once on malformed output, then reports it', async () => {
     const fetchMock = vi.fn(async () => chat('not json at all'));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(createGrokProvider(env)!.evaluateAnswer(evalInput)).rejects.toMatchObject({ code: 'PROVIDER_INVALID_RESPONSE' });
+    await expect(createLlmProvider(env)!.evaluateAnswer(evalInput)).rejects.toMatchObject({ code: 'PROVIDER_INVALID_RESPONSE' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     fetchMock.mockReset();
     fetchMock.mockResolvedValueOnce(chat({ ...evaluation, score: 42 })).mockResolvedValueOnce(chat(evaluation));
-    expect((await createGrokProvider(env)!.evaluateAnswer(evalInput)).score).toBe(6);
+    expect((await createLlmProvider(env)!.evaluateAnswer(evalInput)).score).toBe(6);
   });
 
   it('classifies failures and does not retry auth or rate-limit errors', async () => {
@@ -69,7 +69,7 @@ describe('Grok provider', () => {
     for (const [impl, code, calls] of cases) {
       const fetchMock = vi.fn(impl);
       vi.stubGlobal('fetch', fetchMock);
-      const err = await createGrokProvider(env)!.evaluateAnswer(evalInput).catch((e: unknown) => e);
+      const err = await createLlmProvider(env)!.evaluateAnswer(evalInput).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(LlmError);
       expect((err as LlmError).code).toBe(code);
       expect(fetchMock).toHaveBeenCalledTimes(calls);
@@ -81,7 +81,7 @@ describe('Grok provider', () => {
       chat({ questions: [{ text: 'Describe a hard bug you fixed.', category: 'RESUME', difficulty: 'MEDIUM', targetSkills: [], evaluationCriteria: ['a'], expectedAnswerPoints: ['b'] }] }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const questions = await createGrokProvider(env)!.generateQuestions({
+    const questions = await createLlmProvider(env)!.generateQuestions({
       jobTitle: 'Engineer', jobDescription: 'JD', requiredSkills: [], resumeText: 'CV text', count: 1, difficulty: 'MEDIUM', experienceLevel: 'MID', categories: ['RESUME'],
     });
     expect(questions).toHaveLength(1);
@@ -129,5 +129,34 @@ describe('evaluation evidence and PDF text', () => {
   it('maps typographic punctuation and replaces glyphs the PDF font cannot draw', () => {
     expect(pdfSafe('“Quoted” – it’s… fine')).toBe('"Quoted" - it\'s... fine');
     expect(pdfSafe('Café ✓ नमस्ते')).toBe('Café ? ??????');
+  });
+});
+
+describe('provider-neutral AI settings', () => {
+  it('defaults to the Gemini OpenAI-compatible endpoint', () => {
+    const gemini = loadEnv({ ...base, LLM_PROVIDER: 'gemini', LLM_API_KEY: 'g-key', LLM_MODEL: 'gemini-test' });
+    expect(gemini.llm).toEqual({ provider: 'gemini', apiKey: 'g-key', model: 'gemini-test', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' });
+    expect(gemini.llmConfigured).toBe(true);
+    expect(() => loadEnv({ ...base, LLM_PROVIDER: 'gemini', LLM_API_KEY: 'g-key' })).toThrow(/LLM_MODEL/);
+  });
+
+  it('falls back to JSON mode once if the provider rejects the JSON-schema format', async () => {
+    const gemini = loadEnv({ ...base, LLM_PROVIDER: 'gemini', LLM_API_KEY: 'g-key', LLM_MODEL: 'gemini-test' });
+    const fetchMock = vi.fn().mockResolvedValueOnce(json(400, { error: { message: 'unsupported response_format' } })).mockImplementation(async () => chat({ reply: 'Thanks.', followUp: '' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = createLlmProvider(gemini)!;
+    const turn = await provider.respondToAnswer({ jobTitle: 'Engineer', question: { text: 'Why?', category: 'TECHNICAL' }, transcript: 'Because.', mayAskFollowUp: true });
+    expect(turn).toEqual({ reply: 'Thanks.', followUp: null });
+    const [url, first] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const second = (fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1];
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+    expect((first.headers as Record<string, string>).Authorization).toBe('Bearer g-key');
+    expect(JSON.parse(first.body as string).response_format.type).toBe('json_schema');
+    expect(JSON.parse(second.body as string).response_format).toEqual({ type: 'json_object' });
+    expect(JSON.parse(second.body as string).messages[0].content).toContain('matches this JSON schema');
+
+    // Later calls go straight to JSON mode.
+    await provider.answerCandidateQuestion({ jobTitle: 'Engineer', question: { text: 'Why?', category: 'TECHNICAL' }, message: 'What does that mean?' });
+    expect(JSON.parse((fetchMock.mock.calls[2] as unknown as [string, RequestInit])[1].body as string).response_format).toEqual({ type: 'json_object' });
   });
 });

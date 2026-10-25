@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, LogOut } from 'lucide-react';
 import { api } from '@/api/client';
@@ -6,6 +7,7 @@ import { useCandidateOutlet } from '@/app/CandidateRouteGuard';
 import { useCandidateSession } from '@/features/auth';
 import { Button } from '@/components/Button';
 import { Spinner } from '@/components/PageState';
+import { createBrowserTts } from '@/features/voice/ttsAdapter';
 
 /** Thank-you screen. Shows submission status only — never scores or reviewer data (PRD §7.1). */
 export function CompletionPage() {
@@ -13,6 +15,15 @@ export function CompletionPage() {
   const { signOut } = useCandidateSession();
   const navigate = useNavigate();
   const { data, loading, error } = useAsync((signal) => api.candidate.currentQuestion(session.sessionId, signal), [session.sessionId]);
+  const conversation = useAsync((signal) => api.candidate.conversation(session.sessionId, signal), [session.sessionId]);
+  const closings = conversation.data?.turns.filter((t) => t.kind === 'CLOSING') ?? [];
+  const closing = closings[closings.length - 1]?.text ?? null;
+  const tts = useMemo(() => createBrowserTts(), []);
+  // The interviewer says goodbye once, out loud.
+  useEffect(() => {
+    if (closing && tts.isSupported) tts.speak(closing);
+    return () => tts.stop();
+  }, [closing, tts]);
 
   const onSignOut = async () => {
     await signOut().catch(() => undefined);
@@ -33,6 +44,12 @@ export function CompletionPage() {
           <p className="mt-2 text-ink-muted">
             Your interview for <span className="font-medium text-ink">{session.jobTitle}</span> has been submitted.
           </p>
+          {closing && (
+            <p className="mt-3 rounded-lg border border-line px-4 py-3 text-left text-sm text-ink">
+              <span className="font-semibold">Interviewer: </span>
+              {closing}
+            </p>
+          )}
         </div>
 
         <div className="w-full rounded-lg bg-surface-muted p-4 text-sm" aria-live="polite">

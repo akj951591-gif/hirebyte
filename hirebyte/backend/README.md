@@ -67,10 +67,22 @@ python -m venv .venv
 Then set `DOCUMENT_SERVICE_URL=http://127.0.0.1:8001` in `backend/api/.env` and restart the API.
 Optionally set the same `DOCUMENT_SERVICE_TOKEN` in both places so only the API can call it.
 
-**3. Grok** (needed for AI questions and evaluation): set `XAI_API_KEY` and `XAI_MODEL` in
-`backend/api/.env` (pick a current model name from docs.x.ai) and restart the API.
+**3. AI interviewer** (questions, evaluation, the conversation): Google Gemini by default.
+Create a free key at <https://aistudio.google.com/apikey>, then set `LLM_API_KEY` and `LLM_MODEL`
+(a current Gemini model name) in `backend/api/.env` and restart the API. `LLM_PROVIDER=xai` or `groq`
+also work; any OpenAI-compatible chat API can be used with `LLM_BASE_URL`.
 
-**4. LiveKit and R2** (live video and recordings): see the comments in `api/.env.example`.
+**4. LiveKit** (live video, phone camera, recordings): set `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
+`LIVEKIT_API_SECRET` from LiveKit Cloud.
+
+**5. Recording storage** (Supabase Storage): create a *private* bucket, enable the S3 connection in
+Project Settings > Storage, create an access key, then set `SUPABASE_PROJECT_REF`, `STORAGE_REGION`,
+`STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` and `STORAGE_BUCKET`. Cloudflare R2 or AWS S3
+work too (see `api/.env.example`). Recording also needs `RECORDING_ENABLED=true`.
+
+**6. Phone camera testing**: phones only allow the camera on `https://` pages, and the QR link uses
+`APP_BASE_URL`. Expose the frontend through an HTTPS tunnel (for example `cloudflared tunnel --url
+http://localhost:5173`), set `APP_BASE_URL` and `WEB_ORIGIN` to the tunnel URL, and restart the API.
 
 Check what is configured at <http://localhost:4000/api/health>; it reports `database`, `media`,
 `storage`, `recording`, `ai` and `documents` without showing any secret. Then run the frontend
@@ -175,6 +187,19 @@ READY only after the file is confirmed there. Playback URLs are signed for 5 min
 **Live updates.** Socket.IO at `/api/socket.io`, authenticated by the same cookies. See
 [`contracts/events.md`](contracts/events.md).
 
+**AI interviewer conversation.** The interviewer greets the candidate, replies briefly after each
+answer and, when the interview allows follow-ups, may ask one follow-up per question (inserted right
+after it, limited by `maxFollowUps`, never in the last 3 minutes). The candidate can ask the
+interviewer about the current question (3 times per question); it may rephrase or explain, never
+answer. Every line is stored (`ConversationTurn`) and shown in the recruiter's report. The greeting
+and closing need no AI; replies and clarifications need `LLM_*`, and the interview never waits on them.
+
+**Camera observations.** In the candidate's browser, MediaPipe watches the laptop camera (no face,
+more than one face, looking away from the candidate's own baseline), the tab (hidden or out of focus)
+and the phone camera (more than one person). Only the resulting observations reach the server
+(`POST /interviews/:id/events` and `/phone-events`), as items for a human to review; nothing is
+decided automatically (PRD §13).
+
 ## API contract
 
 - `contracts/api-types.ts` holds the request, response and event types. `frontend/src/api/generated/contract.ts`
@@ -185,12 +210,14 @@ READY only after the file is confirmed there. Playback URLs are signed for 5 min
 
 ## Known limitations
 
-- Grok and LiveKit/R2 are tested with fakes and offline SDK checks, not against real accounts.
-  The first run with real keys should be watched.
+- AI (Gemini/Grok), LiveKit and Supabase/R2 are tested with fakes and offline SDK checks, not yet
+  against real accounts; watch the first run with real keys. Whether the composite recording
+  includes the phone feed must be checked in a real room (PRD §9.4).
+- Camera observations depend on lighting and camera angle; they are prompts for review, not facts.
+  The phone person model is about 7 MB and loads once per phone.
 - No OCR: scanned PDFs are reported as `NO_TEXT`.
 - PDF export uses built-in fonts, so characters outside Western European scripts show as `?`.
-- Evaluation jobs run inside the API process (no external queue); a restart marks running jobs as failed.
+- Evaluation jobs run inside the API process (no external queue); a restart marks them as failed.
 - `PROCESSING_ANSWER` exists in the lifecycle but is unused, because answers save synchronously.
-- Frontend gaps (workstreams A/B): no phone camera page (`/pair`), LiveKit video is not shown yet,
-  the "Download PDF" button is behind `VITE_SERVER_PDF_EXPORT`, and pages do not use the live
-  events yet (`frontend/src/api/client/realtime.ts` is ready but not wired in).
+- The frontend does not use the live Socket.IO events yet (`frontend/src/api/client/realtime.ts`
+  is ready); pages poll. "Download PDF" is behind `VITE_SERVER_PDF_EXPORT`.

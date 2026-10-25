@@ -4,7 +4,7 @@ import { CheckCircle2, Keyboard, Mic, RotateCcw, SkipForward, Square, Volume2, S
 import { api, type CandidateQuestion, type CurrentQuestionResponse } from '@/api/client';
 import { toApiError, useAsync } from '@/api/client/useAsync';
 import { useCandidateOutlet } from '@/app/CandidateRouteGuard';
-import { useLocalMedia } from '@/features/media';
+import { useLocalMedia, usePublishToRoom } from '@/features/media';
 import { createBrowserStt, createBrowserTts } from '@/features/voice';
 import { Alert } from '@/components/Alert';
 import { Button } from '@/components/Button';
@@ -13,6 +13,8 @@ import { ErrorState, LoadingState } from '@/components/PageState';
 import { QuestionCard } from '@/components/QuestionCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { VideoPanel } from '@/components/VideoPanel';
+import { useCameraObservations, useTabObservations } from '@/features/proctoring';
+import { ConversationPanel } from '@/features/conversation';
 import { cn } from '@/components/cn';
 import { formatClock, humanize, newIdempotencyKey } from '@/utils/format';
 
@@ -45,6 +47,18 @@ export function InterviewRoomPage() {
   );
 
   const media = useLocalMedia({ autoStart: true });
+  const conversation = useAsync((signal) => api.candidate.conversation(session.sessionId, signal), [session.sessionId]);
+  // Camera and tab checks, reported as observations for the recruiter to review (PRD §13).
+  const observing = current?.status === 'IN_PROGRESS' || current?.status === 'PROCESSING_ANSWER';
+  const reportObservation = useCallback(
+    (body: Parameters<typeof api.proctoring.log>[1]) => api.proctoring.log(session.interviewId, body),
+    [session.interviewId],
+  );
+  const cameraChecks = useCameraObservations({ stream: media.stream, enabled: observing, camera: 'PRIMARY', report: reportObservation });
+  useTabObservations({ enabled: observing, report: reportObservation });
+  // Laptop camera + microphone into the interview room for the recruiter's live view and recording.
+  const getLaptopToken = useCallback(() => api.media.token(session.interviewId, { device: 'primary' }), [session.interviewId]);
+  usePublishToRoom({ getToken: getLaptopToken, stream: media.stream, enabled: observing });
   const tts = useMemo(() => createBrowserTts(), []);
   const stt = useMemo(() => createBrowserStt(), []);
 
@@ -72,14 +86,15 @@ export function InterviewRoomPage() {
 
   useEffect(() => tts.subscribe((s) => setTtsSpeaking(s === 'speaking')), [tts]);
 
+  /** Reads the question aloud, after the interviewer's reply to the previous answer when there is one. */
   const speakQuestion = useCallback(
-    (q: CandidateQuestion) => {
+    (q: CandidateQuestion, interviewerReply?: string | null) => {
       if (!tts.isSupported) {
         setPhase('ready');
         return;
       }
       setPhase('asking');
-      tts.speak(q.text, { onEnd: () => setPhase((p) => (p === 'asking' ? 'ready' : p)) });
+      tts.speak(interviewerReply ? `${interviewerReply} ${q.text}` : q.text, { onEnd: () => setPhase((p) => (p === 'asking' ? 'ready' : p)) });
     },
     [tts],
   );
@@ -92,7 +107,9 @@ export function InterviewRoomPage() {
     setSttError(null);
     setSaveError(null);
     answerStartRef.current = null;
-    speakQuestion(question);
+    speakQuestion(question, current?.interviewerReply);
+    // A new question means the interviewer just said something: refresh the conversation.
+    void conversation.reload({ silent: true });
   }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(
@@ -242,11 +259,17 @@ export function InterviewRoomPage() {
       <div className="space-y-4">
         {question ? (
           <>
+            {current.interviewerReply && (
+              <p className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-ink" aria-live="polite">
+                <span className="font-semibold">Interviewer: </span>
+                {current.interviewerReply}
+              </p>
+            )}
             <QuestionCard
               sequence={question.sequence}
               total={progress.total}
               text={question.text}
-              tags={[humanize(question.category)]}
+              tags={question.isFollowUp ? ['Follow-up', humanize(question.category)] : [humanize(question.category)]}
               size="lg"
               actions={
                 tts.isSupported && (
@@ -261,6 +284,19 @@ export function InterviewRoomPage() {
                   </Button>
                 )
               }
+            />
+
+            <ConversationPanel
+              turns={conversation.data?.turns ?? []}
+              canAsk={phase !== 'listening' && phase !== 'saving'}
+              onAsk={async (message) => {
+                const res = await api.candidate.ask(session.sessionId, { questionId: question.id, message });
+                conversation.setData((cur) => ({ turns: [...(cur?.turns ?? []), res.question, res.reply] }));
+                if (tts.isSupported) {
+                  tts.stop();
+                  tts.speak(res.reply.text);
+                }
+              }}
             />
 
             <section className="card p-5" aria-labelledby="answer-heading">
@@ -415,6 +451,15 @@ export function InterviewRoomPage() {
           }
           placeholder={media.state === 'requesting' ? <Loader2 className="h-6 w-6 animate-spin" aria-hidden /> : <span>{media.errorMessage}</span>}
         />
+        {observing && cameraChecks !== 'off' && (
+          <p className="text-xs text-ink-muted" role="status">
+            {cameraChecks === 'active'
+              ? 'Camera checks are on, as described in the notice.'
+              : cameraChecks === 'loading'
+                ? 'Starting camera checks…'
+                : 'Camera checks are unavailable on this device. Your interview continues normally.'}
+          </p>
+        )}
         {media.errorMessage && (
           <Alert tone="warning" action={<Button size="sm" variant="secondary" onClick={() => void media.start()}>Reconnect camera</Button>}>
             {media.errorMessage}

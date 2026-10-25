@@ -10,10 +10,12 @@ export interface VideoPanelProps {
   status?: ReactNode;
   placeholder?: ReactNode;
   mirrored?: boolean;
+  /** Self-views stay muted; a recruiter watching the candidate turns this off to hear them. */
+  muted?: boolean;
   className?: string;
 }
 
-export function VideoPanel({ label, stream, status, placeholder, mirrored = false, className }: VideoPanelProps) {
+export function VideoPanel({ label, stream, status, placeholder, mirrored = false, muted = true, className }: VideoPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function VideoPanel({ label, stream, status, placeholder, mirrored = fals
             ref={videoRef}
             autoPlay
             playsInline
-            muted
+            muted={muted}
             aria-label={label}
             className={cn('h-full w-full object-cover', mirrored && '-scale-x-100')}
           />

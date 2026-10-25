@@ -148,3 +148,7 @@ export function toDetail(i: InterviewWithDetail, crypto: Crypto, env: Env): Api.
     live,
   };
 }
+
+export function toConversationTurn(t: Prisma.ConversationTurnGetPayload<object>): Api.ConversationTurn {
+  return { id: t.id, role: t.role, kind: t.kind, text: t.text, questionId: t.questionId, createdAt: t.createdAt.toISOString() };
+}

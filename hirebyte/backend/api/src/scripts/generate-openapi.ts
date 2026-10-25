@@ -53,6 +53,8 @@ const SECURITY: Record<RouteAuth, Array<Record<string, string[]>>> = {
   candidate: [{ candidateSession: [] }],
   // Recruiter viewer, candidate laptop, or (no cookie) a phone with a pairing token in the body.
   mediaToken: [{ recruiterSession: [] }, { candidateSession: [] }, {}],
+  // The phone has no cookie: the deviceToken from pairing travels in the JSON body.
+  phoneDevice: [],
   webhook: [{ livekitSignature: [] }],
 };
 

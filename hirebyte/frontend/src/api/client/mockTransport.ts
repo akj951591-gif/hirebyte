@@ -9,6 +9,7 @@
 import type {
   CandidateSessionView,
   CreateInterviewRequest,
+  CreateProctoringEventRequest,
   CurrentQuestionResponse,
   Evaluation,
   InterviewDetail,
@@ -138,6 +139,8 @@ function currentQuestion(state: FixtureState, interview: InterviewDetail): Curre
     startedAt: interview.startedAt,
     durationMinutes: interview.config.durationMinutes,
     allowSkip: interview.config.allowSkip,
+    // FIXTURE: no AI interviewer in fixture mode.
+    interviewerReply: null,
   };
 }
 
@@ -464,7 +467,12 @@ const routes: Array<[RequestOptions['method'], RegExp, Handler]> = [
         refreshLive(state, interview, session);
         save(state);
       }
-      return { status: interview.status, submittedAt: interview.endedAt ?? now(), progress: progressOf(state, interview).progress };
+      return {
+        status: interview.status,
+        submittedAt: interview.endedAt ?? now(),
+        progress: progressOf(state, interview).progress,
+        closingMessage: 'Thank you. That\'s the end of the interview. Your answers have been saved, and the hiring team will review them.',
+      };
     },
   ],
 
@@ -601,6 +609,51 @@ const routes: Array<[RequestOptions['method'], RegExp, Handler]> = [
     },
   ],
   [
+    'GET',
+    /^\/candidate\/sessions\/([^/]+)\/conversation$/,
+    ({ state, params }) => {
+      requireCandidate(state, params[0]!);
+      return { turns: [] };
+    },
+  ],
+  [
+    'POST',
+    /^\/candidate\/sessions\/([^/]+)\/ask$/,
+    ({ state, params }) => {
+      requireCandidate(state, params[0]!);
+      return fail(503, 'PROVIDER_UNAVAILABLE', 'The interviewer cannot take questions in fixture mode. Please answer as best you can.');
+    },
+  ],
+  [
+    'POST',
+    /^\/interviews\/([^/]+)\/(media-token|phone-events)$/,
+    // FIXTURE: no LiveKit in fixture mode, so live video reports itself as not configured.
+    () => fail(503, 'MEDIA_NOT_CONFIGURED', 'Live video is not available in fixture mode.'),
+  ],
+  [
+    'POST',
+    /^\/interviews\/([^/]+)\/events$/,
+    ({ state, params, body }) => {
+      // The fixture's stand-in for the candidate session cookie.
+      const { interview } = requireCandidate(state, state.candidateSessionId ?? '');
+      if (interview.id !== params[0]) fail(403, 'FORBIDDEN', 'This session does not belong to you.');
+      const req = body as CreateProctoringEventRequest;
+      const event: ProctoringEvent = {
+        id: fixtureId('evt'),
+        type: req.type,
+        occurredAt: req.occurredAt ?? now(),
+        durationSeconds: req.durationSeconds ?? null,
+        sourceCamera: req.sourceCamera ?? 'PRIMARY',
+        description: req.description ?? 'Observation logged.',
+        reviewStatus: 'UNREVIEWED',
+        reviewerNote: null,
+      };
+      state.events[interview.id] = [event, ...(state.events[interview.id] ?? [])];
+      save(state);
+      return event;
+    },
+  ],
+  [
     'POST',
     /^\/interviews\/([^/]+)\/resume$/,
     ({ state, params, body }) => {
@@ -722,6 +775,8 @@ const routes: Array<[RequestOptions['method'], RegExp, Handler]> = [
         overall: state.overall[interview.id] ?? null,
         items: interview.questions.map((q) => ({ question: q, answer: answers[q.id] ?? null, evaluation: evaluations[q.id] ?? null })),
         proctoringEvents: state.events[interview.id] ?? [],
+        // FIXTURE: no AI interviewer, so no conversation is recorded.
+        conversation: [],
         generatedAt: now(),
       };
     },

@@ -224,6 +224,25 @@ export function ReportPage() {
           <ProctoringTimeline events={data.proctoringEvents} startedAt={interview.startedAt} onReview={reviewEvent} />
         </ReportSection>
 
+        <ReportSection
+          title="Interviewer conversation"
+          description="What the AI interviewer said to the candidate, and what the candidate asked it. Check that no hints were given."
+        >
+          {data.conversation.length === 0 ? (
+            <p className="text-sm text-ink-muted">No conversation was recorded for this interview.</p>
+          ) : (
+            <ol className="space-y-2">
+              {data.conversation.map((turn) => (
+                <li key={turn.id} className="text-sm">
+                  <span className="text-xs text-ink-subtle">{formatDateTime(turn.createdAt)} · </span>
+                  <span className="font-semibold text-ink">{turn.role === 'INTERVIEWER' ? 'Interviewer' : 'Candidate'}: </span>
+                  <span className="text-ink">{turn.text}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </ReportSection>
+
         <p className="text-center text-xs text-ink-subtle">
           Report generated {formatDateTime(data.generatedAt)} · Overall score {formatScore(overall?.score ?? null, overall?.maxScore)}
         </p>

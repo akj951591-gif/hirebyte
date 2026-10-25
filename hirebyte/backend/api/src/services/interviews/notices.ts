@@ -39,3 +39,19 @@ export function candidateInstructions(config: InterviewConfig): string[] {
       : 'Skipping questions is not enabled for this interview.',
   ];
 }
+
+/** The interviewer's opening line, spoken before the first question. */
+export function interviewerGreeting(input: { firstName: string; jobTitle: string; company: string; questionCount: number; followUps: boolean }): string {
+  return [
+    `Hello ${input.firstName}, and welcome to your ${input.jobTitle} interview with ${input.company}.`,
+    `I'll ask you ${input.questionCount} question${input.questionCount === 1 ? '' : 's'}${input.followUps ? ', and I may ask a short follow-up now and then' : ''}.`,
+    'Take your time and answer in your own words. If a question is unclear, you can ask me about it. Let\'s begin.',
+  ].join(' ');
+}
+
+/** The interviewer's closing line when the interview ends. */
+export function interviewerClosing(firstName: string): string {
+  return `Thank you, ${firstName}. That's the end of the interview. Your answers have been saved, and the hiring team will review them and get back to you.`;
+}
+
+export const firstNameOf = (fullName: string) => fullName.trim().split(/\s+/)[0] || fullName;
