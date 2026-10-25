@@ -23,6 +23,8 @@ import type {
   ProctoringEvent,
   RecruiterLoginRequest,
   RecruiterLoginResponse,
+  RecruiterRegisterRequest,
+  RecruiterRegisterResponse,
   ReviewEvaluationRequest,
   ReviewProctoringEventRequest,
   CreateProctoringEventRequest,
@@ -65,6 +67,9 @@ export const api = {
   auth: {
     recruiterLogin: (body: RecruiterLoginRequest) =>
       request<RecruiterLoginResponse>({ method: 'POST', path: '/auth/recruiter/login', body }),
+    /** Self-service sign-up; the new recruiter is signed in by the response's session cookie. */
+    recruiterRegister: (body: RecruiterRegisterRequest) =>
+      request<RecruiterRegisterResponse>({ method: 'POST', path: '/auth/recruiter/register', body }),
     recruiterLogout: () => request<void>({ method: 'POST', path: '/auth/recruiter/logout' }),
     me: (signal?: AbortSignal) => request<MeResponse>({ method: 'GET', path: '/auth/me', signal }),
   },

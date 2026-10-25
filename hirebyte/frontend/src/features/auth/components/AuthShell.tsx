@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Briefcase, CheckCircle2, UserRound } from 'lucide-react';
 import { appConfig } from '@/config/app.config';
 import { Logo } from '@/components/Logo';
@@ -16,6 +16,8 @@ const highlights = [
  * (PRD §2) — the tabs simply link between them.
  */
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  // The Recruiter tab also stays selected on the sign-up page (/recruiter/register).
+  const onRecruiterPages = useLocation().pathname.startsWith('/recruiter');
   return (
     <div className="flex min-h-full flex-1">
       <aside className="relative hidden w-[42%] flex-col justify-between overflow-hidden bg-brand-strong p-10 text-ink-inverse lg:flex">
@@ -52,7 +54,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
             <AuthTab to="/candidate/login" icon={<UserRound className="h-4 w-4" aria-hidden />}>
               Candidate
             </AuthTab>
-            <AuthTab to="/recruiter/login" icon={<Briefcase className="h-4 w-4" aria-hidden />}>
+            <AuthTab to="/recruiter/login" active={onRecruiterPages} icon={<Briefcase className="h-4 w-4" aria-hidden />}>
               Recruiter
             </AuthTab>
           </nav>
@@ -65,7 +67,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   );
 }
 
-function AuthTab({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) {
+function AuthTab({ to, icon, children, active }: { to: string; icon: ReactNode; children: ReactNode; active?: boolean }) {
   return (
     <NavLink
       to={to}
@@ -73,7 +75,7 @@ function AuthTab({ to, icon, children }: { to: string; icon: ReactNode; children
       className={({ isActive }) =>
         cn(
           'flex items-center justify-center gap-2 rounded px-3 py-2 text-sm font-medium transition-colors',
-          isActive ? 'bg-surface text-brand-strong shadow-card' : 'text-ink-muted hover:text-ink',
+          (active ?? isActive) ? 'bg-surface text-brand-strong shadow-card' : 'text-ink-muted hover:text-ink',
         )
       }
     >

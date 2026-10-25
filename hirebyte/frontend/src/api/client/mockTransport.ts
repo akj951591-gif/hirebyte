@@ -272,6 +272,25 @@ const routes: Array<[RequestOptions['method'], RegExp, Handler]> = [
   ],
   [
     'POST',
+    /^\/auth\/recruiter\/register$/,
+    ({ state, body }) => {
+      const { name, email, password } = (body ?? {}) as { name?: string; email?: string; password?: string };
+      const fields: Record<string, string> = {};
+      if (!name || name.trim().length < 2) fields.name = 'Enter your full name.';
+      if (!email || !/^\S+@\S+\.\S+$/.test(email.trim())) fields.email = 'Enter a valid email address.';
+      if (!password || password.length < 12) fields.password = 'Use at least 12 characters.';
+      if (Object.keys(fields).length) fail(400, 'VALIDATION_ERROR', 'Please fix the highlighted fields.', { fields });
+      if (email!.trim().toLowerCase() === FIXTURE_RECRUITER.email) {
+        fail(409, 'EMAIL_TAKEN', 'An account with this email already exists. Sign in instead.');
+      }
+      // Fixture mode has one recruiter; signing up just signs that recruiter in under the new name.
+      state.recruiterSignedIn = true;
+      save(state);
+      return { user: { ...FIXTURE_RECRUITER, name: name!.trim(), email: email!.trim().toLowerCase() } };
+    },
+  ],
+  [
+    'POST',
     /^\/auth\/recruiter\/logout$/,
     ({ state }) => {
       state.recruiterSignedIn = false;

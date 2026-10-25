@@ -86,6 +86,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /auth/recruiter/register:
+    post:
+      tags:
+        - Auth
+      summary: Self-service recruiter sign-up; creates the account and signs it in (sets the hb_session cookie). Rate-limited; can be switched off with RECRUITER_SIGNUP_ENABLED.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruiterRegisterRequest"
+      responses:
+        "201":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecruiterRegisterResponse"
+        "400":
+          description: "Error codes: VALIDATION_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: "Error codes: SIGNUP_DISABLED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: "Error codes: EMAIL_TAKEN."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: "Error codes: RATE_LIMITED."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "500":
+          description: "Error codes: INTERNAL_ERROR."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /auth/recruiter/logout:
     post:
       tags:
@@ -1992,6 +2041,8 @@ components:
         - RATE_LIMITED
         - INVALID_CREDENTIALS
         - ACCOUNT_LOCKED
+        - EMAIL_TAKEN
+        - SIGNUP_DISABLED
         - INVITATION_INVALID
         - INVITATION_EXPIRED
         - INTERVIEW_COMPLETED
@@ -2070,6 +2121,28 @@ components:
       required:
         - user
       description: Session is carried by an HttpOnly cookie; the body only echoes the safe identity.
+    RecruiterRegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+          description: At least 12 characters, and not an obvious one.
+      required:
+        - name
+        - email
+        - password
+      description: "POST /auth/recruiter/register: self-service sign-up, which also signs the new recruiter in."
+    RecruiterRegisterResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/SafeUser"
+      required:
+        - user
     MeResponse:
       type: object
       properties:

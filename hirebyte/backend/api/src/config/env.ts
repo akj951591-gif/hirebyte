@@ -106,6 +106,9 @@ const schema = z
     DOCUMENT_SERVICE_TOKEN: optional,
     DOCUMENT_TIMEOUT_MS: int(30_000),
 
+    /** Lets anyone create a recruiter account from the sign-in page. Turn off for a closed deployment. */
+    RECRUITER_SIGNUP_ENABLED: bool.default(true),
+
     // Seed script only
     SEED_RECRUITER_EMAIL: optional,
     SEED_RECRUITER_PASSWORD: optional,
