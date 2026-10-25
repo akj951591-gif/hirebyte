@@ -19,7 +19,7 @@ rm -rf "$stage" && mkdir -p "$stage/backend"
 
 # Committed files only, so no node_modules and no local .env files.
 git -C "$repo" archive "HEAD:hirebyte/backend" | tar -x -C "$stage/backend"
-git -C "$repo" archive "HEAD:hirebyte" .ebextensions .platform | tar -x -C "$stage"
+git -C "$repo" archive "HEAD:hirebyte" .ebextensions | tar -x -C "$stage"
 git -C "$repo" archive "HEAD:hirebyte/deploy/eb" docker-compose.eb.yml Caddyfile | tar -x -C "$stage"
 mv "$stage/docker-compose.eb.yml" "$stage/docker-compose.yml"
 cp -r frontend/dist "$stage/site"
