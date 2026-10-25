@@ -1,0 +1,66 @@
+# HireByte demo deployment: the whole app on one machine (AWS EC2), behind CloudFront for HTTPS.
+# Settings come from .env next to this file (create it with deploy/init-env.sh; see deploy/README.md).
+#
+#   sudo docker compose -f docker-compose.prod.yml up -d --build
+#
+# Only nginx ("web") is published; Postgres, the API and the document service stay on the private
+# Docker network.
+name: hirebyte-prod
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hirebyte
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hirebyte
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hirebyte -d hirebyte']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  documents:
+    build: ./backend/services/document-service
+    restart: unless-stopped
+    environment:
+      DOCUMENT_SERVICE_TOKEN: ${DOCUMENT_SERVICE_TOKEN:-}
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    # These override anything in .env: they describe this Docker network, not your accounts.
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://hirebyte:${POSTGRES_PASSWORD}@postgres:5432/hirebyte
+      DOCUMENT_SERVICE_URL: http://documents:8001
+      TRUST_PROXY_HOPS: 2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      documents:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:4000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT:-80}:80'
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

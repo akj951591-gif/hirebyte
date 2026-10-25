@@ -16,7 +16,8 @@ export function createApp(deps: AppDeps) {
 
   app.disable('x-powered-by');
   // The Vite dev proxy (and most hosts) forward from loopback; needed for correct client IPs in rate limits.
-  app.set('trust proxy', 'loopback');
+  // Deployed behind other proxies (CloudFront → nginx), TRUST_PROXY_HOPS says how many to trust instead.
+  app.set('trust proxy', deps.env.TRUST_PROXY_HOPS ?? 'loopback');
   app.use((req, res, next) => {
     req.id = randomUUID();
     res.setHeader('X-Request-Id', req.id);

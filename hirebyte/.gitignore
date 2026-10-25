@@ -1,0 +1,2 @@
+# Production settings on the server (docker-compose.prod.yml); never commit.
+.env

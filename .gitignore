@@ -1,0 +1,5 @@
+# Deployment secrets and bundles: never commit.
+.env.deploy
+.env
+*.zip
+deploy-out/
