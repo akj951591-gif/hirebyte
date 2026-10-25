@@ -1,0 +1,72 @@
+# HireByte demo on Elastic Beanstalk (single instance): Caddy terminates HTTPS and serves the built
+# frontend (./site), the API, document service and Postgres stay on the private Docker network.
+# deploy/eb/make-bundle.sh builds the zip: this file becomes docker-compose.yml at its root.
+name: hirebyte-eb
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hirebyte
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hirebyte
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hirebyte -d hirebyte']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  documents:
+    build: ./backend/services/document-service
+    restart: unless-stopped
+    environment:
+      DOCUMENT_SERVICE_TOKEN: ${DOCUMENT_SERVICE_TOKEN:-}
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    # These override anything in .env: they describe this Docker network, not your accounts.
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://hirebyte:${POSTGRES_PASSWORD}@postgres:5432/hirebyte
+      DOCUMENT_SERVICE_URL: http://documents:8001
+      # Caddy is the only proxy in front of the API.
+      TRUST_PROXY_HOPS: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      documents:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:4000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site:/srv/site:ro
+      # Certificates live here, so redeploys do not ask Let's Encrypt for new ones.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

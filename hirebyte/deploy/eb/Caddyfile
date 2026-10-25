@@ -1,0 +1,22 @@
+# HTTPS for the Elastic Beanstalk demo: Caddy gets Let's Encrypt certificates for both names
+# (DNS must point at this instance first) and serves the built frontend plus the API.
+bulkblast.in {
+	encode gzip zstd
+
+	# Same origin as the SPA, so the session cookies and Socket.IO need no CORS.
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		root * /srv/site
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+api.bulkblast.in {
+	reverse_proxy api:4000
+}
